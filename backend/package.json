@@ -1,0 +1,47 @@
+{
+  "name": "edusphere-backend",
+  "version": "1.0.0",
+  "description": "Backend service for EduSphere LMS built with Express, TypeScript, and Supabase",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "tsc --noEmit",
+    "backup": "ts-node scripts/backup-database.ts",
+    "backup:files": "ts-node scripts/backup-storage-files.ts",
+    "backup:all": "ts-node scripts/backup-database.ts && ts-node scripts/backup-storage-files.ts",
+    "restore": "ts-node scripts/restore-database.ts",
+    "restore:files": "ts-node scripts/restore-storage-files.ts",
+    "restore:all": "ts-node scripts/restore-database.ts && ts-node scripts/restore-storage-files.ts"
+  },
+  "keywords": [
+    "lms",
+    "express",
+    "typescript",
+    "supabase"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.49.1",
+    "@types/multer": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "morgan": "^1.10.0",
+    "multer": "^2.2.0",
+    "openai": "^7.5.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.13.5",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.7.3"
+  }
+}

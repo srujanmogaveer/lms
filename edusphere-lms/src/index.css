@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Infinite marquee for partners strip ──────────────────────────────────── */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 22s linear infinite;
+  display: flex;
+  width: max-content;
+}
+.animate-marquee:hover { animation-play-state: paused; }
+
+/* ── Hero animated gradient orbs ──────────────────────────────────────────── */
+@keyframes orb-one {
+  0%,100% { transform: translate(0px,0px) scale(1); }
+  33%      { transform: translate(-50px,40px) scale(1.09); }
+  66%      { transform: translate(35px,-25px) scale(0.95); }
+}
+@keyframes orb-two {
+  0%,100% { transform: translate(0px,0px) scale(1); }
+  40%      { transform: translate(55px,-45px) scale(1.13); }
+  75%      { transform: translate(-30px,30px) scale(0.93); }
+}
+@keyframes orb-three {
+  0%,100% { transform: translate(0px,0px) scale(1); }
+  50%      { transform: translate(-40px,-35px) scale(1.07); }
+}
+.hero-orb { position:absolute; border-radius:50%; pointer-events:none; }
+
+/* ── How it Works — step pulse + arrow bounce ─────────────────────────────── */
+@keyframes stepPulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.1); }
+}
+@keyframes arrowBounce {
+  0%, 100% { transform: translateX(0); }
+  50%       { transform: translateX(6px); }
+}
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-100 dark:bg-slate-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600;
+}
+
+/* Certificate Print Styles */
+@media print {
+  @page {
+    size: landscape;
+    margin: 8mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-certificate-document,
+  #printable-certificate-document * {
+    visibility: visible;
+  }
+
+  #printable-certificate-document {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: auto;
+    margin: 0 !important;
+    padding: 28px !important;
+    border: 8px solid #1E293B !important;
+    box-shadow: none !important;
+    background-color: #FCFBF7 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    z-index: 999999;
+  }
+}
+

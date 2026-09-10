@@ -1,0 +1,48 @@
+/**
+ * Execute Migration 018 on Supabase
+ * Run: npx tsx scripts/exec-migration-018.ts
+ */
+import fs from 'fs';
+import path from 'path';
+import { supabaseAdmin } from '../src/config/supabase';
+
+async function migrate() {
+  const SUPABASE_URL = process.env.SUPABASE_URL || 'https://vghcflwcfsgukwamqxdu.supabase.co';
+  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+  console.log('Connecting to Supabase to apply migration 018...');
+
+  const migrationPath = path.join(__dirname, '../supabase/migrations/018_create_announcements_and_notifications.sql');
+  const sql = fs.readFileSync(migrationPath, 'utf8');
+
+  // Attempt RPC exec if available
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec`, {
+      method: 'POST',
+      headers: {
+        'apikey': SERVICE_KEY,
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query: sql }),
+    });
+    console.log('RPC Exec status:', res.status);
+  } catch (e: any) {
+    console.log('RPC Exec error:', e.message);
+  }
+
+  // Also check direct table access with supabaseAdmin
+  const { error: testErr } = await supabaseAdmin.from('announcements').select('id').limit(1);
+  if (testErr) {
+    console.log('Note on announcements table query:', testErr.message);
+  } else {
+    console.log('Successfully queried announcements table via supabaseAdmin!');
+  }
+}
+
+migrate()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

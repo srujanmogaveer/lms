@@ -1,0 +1,13 @@
+﻿node_modules/
+.env
+.env.*
+!.env.example
+
+dist/
+build/
+
+backend/backups/
+backend/storage/
+*.log
+
+.vscode/

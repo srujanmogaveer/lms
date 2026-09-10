@@ -1,0 +1,117 @@
+import type { StudentAnnouncement } from '../types';
+
+export const mockAnnouncementsData: StudentAnnouncement[] = [
+  {
+    id: 'anc-101',
+    title: 'EduSphere Platform v3.4 Maintenance & Live Q&A Room Upgrade',
+    summary: 'Scheduled server maintenance notice for August 5, 2026, from 02:00 AM to 04:00 AM EST.',
+    content:
+      'Dear Students and Instructors,\n\nWe will be performing a scheduled infrastructure upgrade to deploy EduSphere v3.4. During this 2-hour window, video playback and live classroom streaming will be temporarily paused. All course progress and quiz draft state will be saved automatically.\n\nKey updates in v3.4:\n1. Improved video buffering speed on mobile connections.\n2. Enhanced code block syntax highlighting in Discussion Forums.\n3. Automatic certificate QR code verification.\n\nThank you for your patience!',
+    authorName: 'EduSphere Admin Team',
+    authorRole: 'system',
+    authorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150',
+    courseTitle: 'System Announcement',
+    type: 'system_maintenance',
+    date: 'Today at 09:00 AM',
+    isImportant: true,
+    isPinned: true,
+    isNew: true,
+    isRead: false,
+    attachments: [
+      {
+        id: 'att-anc-1',
+        name: 'EduSphere_v3.4_Release_Notes.pdf',
+        size: '1.8 MB',
+        type: 'pdf',
+        url: '#',
+      },
+    ],
+  },
+  {
+    id: 'anc-102',
+    title: 'Midterm Assessment Schedule & Code Submission Submission Guidelines',
+    summary: 'Midterm practical project guidelines and grading rubric for Full-Stack Web Development 2026.',
+    content:
+      'Hello Class!\n\nOur Midterm Practical Assessment will open on Monday, August 10, 2026. Please make sure to review Module 1 through 3 before attempting.\n\nSubmission Rules:\n- Repository must be pushed to GitHub with a public README.md.\n- Video demo link (Loom/YouTube) must be attached in the Assignment workspace.\n- Late submissions will incur a 10% penalty per 24 hours.',
+    authorName: 'Dr. Marcus Vance',
+    authorRole: 'instructor',
+    authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    courseId: 'crs-1',
+    courseTitle: 'Full-Stack Web Development Masterclass 2026',
+    type: 'exam_schedule',
+    date: 'Yesterday at 3:30 PM',
+    isImportant: true,
+    isPinned: true,
+    isNew: true,
+    isRead: false,
+    attachments: [
+      {
+        id: 'att-anc-2',
+        name: 'Midterm_Evaluation_Rubric.pdf',
+        size: '2.4 MB',
+        type: 'pdf',
+        url: '#',
+      },
+      {
+        id: 'att-anc-3',
+        name: 'Starter_Project_Template.zip',
+        size: '4.5 MB',
+        type: 'zip',
+        url: '#',
+      },
+    ],
+  },
+  {
+    id: 'anc-103',
+    title: 'New Video Lessons Added: Figma Auto-Layout v5 Masterclass',
+    summary: 'Module 4 has been updated with 3 new video lessons on responsive design tokens.',
+    content:
+      'Hi Designers!\n\nWe have just released 3 brand new lessons in Module 4 covering Figma v124 Auto-Layout updates, variable mode tokens, and dark mode design handoffs.\n\nMake sure to download the updated Figma Starter Kit below to follow along with the hands-on exercise!',
+    authorName: 'Elena Rostova',
+    authorRole: 'instructor',
+    authorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
+    courseId: 'crs-2',
+    courseTitle: 'UI/UX Design Systems & Figma Masterclass',
+    type: 'course_update',
+    date: 'August 1, 2026',
+    isImportant: false,
+    isPinned: false,
+    isNew: false,
+    isRead: true,
+    attachments: [
+      {
+        id: 'att-anc-4',
+        name: 'Figma_Tokens_Master_Kit.fig',
+        size: '12.1 MB',
+        type: 'doc',
+        url: '#',
+      },
+    ],
+  },
+  {
+    id: 'anc-104',
+    title: 'DevOps Lab Container Environment Troubleshooting FAQ',
+    summary: 'Solutions for common Minikube and Docker Desktop permission errors on Windows PowerShell.',
+    content:
+      'Hi DevOps Engineers!\n\nIf you encountered `connection refused` or `driver docker permission denied` while launching your Kubernetes local cluster, please read the attached step-by-step troubleshooting guide.',
+    authorName: 'David Miller (TA)',
+    authorRole: 'instructor',
+    authorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+    courseId: 'crs-3',
+    courseTitle: 'Cloud Native DevOps & Kubernetes Essentials',
+    type: 'general',
+    date: 'July 29, 2026',
+    isImportant: false,
+    isPinned: false,
+    isNew: false,
+    isRead: true,
+  },
+];
+
+export const announcementTypes = [
+  { value: 'all', label: 'All Announcement Types' },
+  { value: 'course_update', label: 'Course Updates' },
+  { value: 'system_maintenance', label: 'System Announcements' },
+  { value: 'exam_schedule', label: 'Exams & Schedules' },
+  { value: 'general', label: 'General News' },
+] as const;

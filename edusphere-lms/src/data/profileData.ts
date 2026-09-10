@@ -1,0 +1,111 @@
+import type {
+  FullStudentProfile,
+  StudentAchievementBadge,
+  AccountActivityLog,
+} from '../types';
+
+export const mockFullStudentProfile: FullStudentProfile = {
+  id: 'std-9041',
+  studentIdNumber: 'EDU-STD-9041',
+  fullName: 'Rahul Sharma',
+  email: 'rahul.sharma@example.com',
+  phoneNumber: '+91 9876543210',
+  dateOfBirth: '14/05/1998',
+  gender: 'male',
+  country: 'India',
+  state: 'Karnataka',
+  city: 'Bengaluru',
+  timezone: 'Asia/Kolkata (IST)',
+  bio: 'Passionate Full-Stack Developer & UI/UX Design Enthusiast. Currently mastering Next.js 15, React 19, TypeScript, and Cloud DevOps architectures.',
+  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+  joinedDate: '15/01/2026',
+  learningStreakDays: 14,
+  isGoogleConnected: true,
+  googleEmail: 'rahul.sharma.dev@gmail.com',
+  themePreference: 'system',
+  languagePreference: 'English (India)',
+  privacy: {
+    publicProfile: true,
+    showLearningProgress: true,
+    shareCertificates: true,
+    marketingEmails: false,
+  },
+};
+
+export const mockStudentAchievements: StudentAchievementBadge[] = [
+  {
+    id: 'ach-101',
+    title: '14-Day Streak Champion',
+    description: 'Completed at least one lesson or quiz daily for 14 consecutive days.',
+    icon: '🔥',
+    earnedDate: 'August 2, 2026',
+    category: 'streak',
+  },
+  {
+    id: 'ach-102',
+    title: 'Full-Stack Graduate',
+    description: 'Graduated with 100% completion from Full-Stack Web Development Masterclass.',
+    icon: '🎓',
+    earnedDate: 'August 1, 2026',
+    category: 'graduation',
+  },
+  {
+    id: 'ach-103',
+    title: 'Quiz Ace (100% Score)',
+    description: 'Scored a perfect 100% on a mandatory course assessment quiz.',
+    icon: '⚡',
+    earnedDate: 'July 28, 2026',
+    category: 'quiz',
+  },
+  {
+    id: 'ach-104',
+    title: 'Early Bird Submitter',
+    description: 'Submitted 5 mandatory assignments 24 hours prior to deadline.',
+    icon: '🚀',
+    earnedDate: 'July 20, 2026',
+    category: 'assignment',
+  },
+];
+
+export const mockAccountActivityLogs: AccountActivityLog[] = [
+  {
+    id: 'log-101',
+    action: 'Logged into Student Portal',
+    ipAddress: '192.168.1.45',
+    location: 'New York, US',
+    timestamp: 'Today at 08:30 AM',
+    type: 'login',
+  },
+  {
+    id: 'log-102',
+    action: 'Updated Notification Preferences',
+    ipAddress: '192.168.1.45',
+    location: 'New York, US',
+    timestamp: 'Yesterday at 04:15 PM',
+    type: 'profile_update',
+  },
+  {
+    id: 'log-103',
+    action: 'Earned Certificate: Full-Stack Web Development',
+    ipAddress: '192.168.1.45',
+    location: 'New York, US',
+    timestamp: 'August 1, 2026 at 11:20 AM',
+    type: 'certificate_earned',
+  },
+  {
+    id: 'log-104',
+    action: 'Updated Account Password',
+    ipAddress: '192.168.1.45',
+    location: 'New York, US',
+    timestamp: 'July 25, 2026 at 09:10 PM',
+    type: 'password_change',
+  },
+  {
+    id: 'log-105',
+    action: 'Completed Course: Web Development Masterclass',
+    ipAddress: '192.168.1.45',
+    location: 'New York, US',
+    timestamp: 'July 24, 2026 at 05:40 PM',
+    type: 'course_completed',
+  },
+];
