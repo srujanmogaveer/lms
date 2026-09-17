@@ -10,6 +10,8 @@ import {
   FiFileText,
   FiDownload,
   FiFile,
+  FiFolder,
+  FiPlayCircle,
   FiHelpCircle,
   FiMessageSquare,
   FiUser,
@@ -19,6 +21,8 @@ import {
   FiX,
   FiChevronDown,
   FiChevronUp,
+  FiChevronLeft,
+  FiChevronRight,
   FiInfo,
   FiBarChart2,
   FiEye,
@@ -30,6 +34,11 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
+import { VideoLessonPlayer } from '../../components/player/VideoLessonPlayer';
+import { PdfNotesViewer } from '../../components/player/PdfNotesViewer';
+import { TextLessonContent } from '../../components/player/TextLessonContent';
+import { ResourcesList } from '../../components/player/ResourcesList';
+import type { PlayerLesson } from '../../types';
 import { type InstructorCourseItem } from '../../data/instructorCoursesData';
 import {
   type CourseReviewDetailsData,
@@ -44,54 +53,6 @@ interface AdminCourseReviewProps {
   onReject: (courseId: string) => void;
   onRequestChanges: (courseId: string, feedback: string) => void;
 }
-
-// Helper to format YouTube and Vimeo URLs into standard embed URLs
-const formatVideoEmbedUrl = (rawUrl: string): string => {
-  const trimmed = (rawUrl || '').trim();
-  if (!trimmed) return '';
-
-  // 1. YouTube embeds
-  if (trimmed.includes('youtube.com/embed/')) {
-    const idPart = trimmed.split('embed/')[1]?.split('?')[0];
-    return `https://www.youtube-nocookie.com/embed/${idPart}?rel=0`;
-  }
-  if (trimmed.includes('youtube.com/shorts/')) {
-    const vId = trimmed.split('shorts/')[1]?.split('?')[0]?.split('&')[0];
-    if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0`;
-  }
-  if (trimmed.includes('youtube.com/watch')) {
-    try {
-      const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
-      const vId = urlObj.searchParams.get('v');
-      if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0`;
-    } catch {
-      const vId = trimmed.split('watch?v=')[1]?.split('&')[0];
-      if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0`;
-    }
-  }
-  if (trimmed.includes('youtu.be/')) {
-    const vId = trimmed.split('youtu.be/')[1]?.split('?')[0]?.split('&')[0];
-    if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0`;
-  }
-
-  // 2. Vimeo embeds (must use player.vimeo.com/video/{id})
-  if (trimmed.includes('player.vimeo.com/video/')) {
-    return trimmed;
-  }
-  if (trimmed.includes('vimeo.com/')) {
-    const match = trimmed.match(/vimeo\.com\/(?:video\/)?([0-9]+)(?:\/([a-zA-Z0-9]+))?/);
-    if (match && match[1]) {
-      const videoId = match[1];
-      const privacyHash = match[2];
-      return `https://player.vimeo.com/video/${videoId}${privacyHash ? `?h=${privacyHash}` : ''}`;
-    }
-    const parts = trimmed.split('vimeo.com/')[1]?.split('?')[0]?.split('/');
-    const vId = parts?.find((p) => /^[0-9]+$/.test(p));
-    if (vId) return `https://player.vimeo.com/video/${vId}`;
-  }
-
-  return trimmed;
-};
 
 export const AdminCourseReview: React.FC<AdminCourseReviewProps> = ({
   course,
@@ -136,6 +97,9 @@ export const AdminCourseReview: React.FC<AdminCourseReviewProps> = ({
   // Active section state
   const [activeSection, setActiveSection] = useState<'info' | 'curriculum' | 'content' | 'assignments' | 'quizzes' | 'instructor' | 'summary'>('info');
 
+  // Preview attachment modal state
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name: string } | null>(null);
+
   // Currently selected lesson for preview
   const allLessons = useMemo(() => {
     return reviewData ? reviewData.sections.flatMap((sec) => sec.lessons) : [];
@@ -143,12 +107,110 @@ export const AdminCourseReview: React.FC<AdminCourseReviewProps> = ({
 
   const [selectedLesson, setSelectedLesson] = useState<ReviewLessonItem | null>(null);
 
+  // Inspected lessons state tracking
+  const [inspectedLessons, setInspectedLessons] = useState<Record<string, boolean>>({});
+
+  // Auto-mark selected lesson as inspected when viewed
+  useEffect(() => {
+    if (selectedLesson?.id) {
+      setInspectedLessons((prev) => ({ ...prev, [selectedLesson.id]: true }));
+    }
+  }, [selectedLesson?.id]);
+
+  const toggleLessonInspected = (lessonId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setInspectedLessons((prev) => ({ ...prev, [lessonId]: !prev[lessonId] }));
+  };
+
+  const inspectedLessonsCount = useMemo(() => {
+    return Object.values(inspectedLessons).filter(Boolean).length;
+  }, [inspectedLessons]);
+
+  // Lesson Navigation & Step calculation
+  const currentLessonIndex = useMemo(() => {
+    return allLessons.findIndex((l) => l.id === selectedLesson?.id);
+  }, [allLessons, selectedLesson?.id]);
+
+  const hasPreviousLesson = currentLessonIndex > 0;
+  const hasNextLesson = currentLessonIndex !== -1 && currentLessonIndex < allLessons.length - 1;
+
+  const handlePrevLesson = () => {
+    if (hasPreviousLesson) {
+      const prevLesson = allLessons[currentLessonIndex - 1];
+      setSelectedLesson(prevLesson);
+    }
+  };
+
+  const handleNextLesson = () => {
+    // Auto-mark current lesson as inspected
+    if (selectedLesson?.id) {
+      setInspectedLessons((prev) => ({ ...prev, [selectedLesson.id]: true }));
+    }
+    if (hasNextLesson) {
+      const nextLesson = allLessons[currentLessonIndex + 1];
+      setSelectedLesson(nextLesson);
+    } else {
+      scrollToSection('assignments');
+    }
+  };
+
+  // Tab State for Lesson Content Inspection: 'video' | 'pdf' | 'text' | 'resources'
+  type LessonInspectTabType = 'video' | 'pdf' | 'text' | 'resources';
+  const [activeLessonTab, setActiveLessonTab] = useState<LessonInspectTabType>('video');
+
+  // Auto switch tab when selected lesson type changes
+  useEffect(() => {
+    if (selectedLesson) {
+      const lType = (selectedLesson.type || '').toLowerCase();
+      if (lType === 'pdf') setActiveLessonTab('pdf');
+      else if (lType === 'text') setActiveLessonTab('text');
+      else if (lType === 'resource') setActiveLessonTab('resources');
+      else setActiveLessonTab('video');
+    }
+  }, [selectedLesson?.id, selectedLesson?.type]);
+
+  // Adapter to pass selectedLesson seamlessly to student player components
+  const playerLessonAdapter: PlayerLesson | null = useMemo(() => {
+    if (!selectedLesson) return null;
+    return {
+      id: selectedLesson.id,
+      moduleId: selectedLesson.sectionId,
+      moduleTitle: selectedLesson.sectionTitle,
+      title: selectedLesson.title,
+      duration: `${selectedLesson.durationMinutes || 10}:00`,
+      type: (selectedLesson.type || 'video').toLowerCase() as 'video' | 'pdf' | 'text' | 'resource',
+      isCompleted: !!inspectedLessons[selectedLesson.id],
+      isBookmarked: false,
+      videoUrl: selectedLesson.videoUrl,
+      pdfUrl: selectedLesson.pdfUrl,
+      pdfTitle: `${selectedLesson.title} - Document`,
+      pdfPageCount: selectedLesson.pdfPageCount,
+      textContent: selectedLesson.textContent
+        ? (typeof selectedLesson.textContent === 'string'
+            ? {
+                subtitle: selectedLesson.sectionTitle,
+                introduction: selectedLesson.textContent,
+                sections: [],
+                keyTakeaways: [],
+              }
+            : selectedLesson.textContent)
+        : undefined,
+      resources: selectedLesson.resources?.map((r) => ({
+        id: r.id,
+        title: r.name,
+        fileType: (r.fileType.toLowerCase() as any) || 'pdf',
+        fileSize: r.size,
+        downloadUrl: r.downloadUrl,
+      })),
+    };
+  }, [selectedLesson, inspectedLessons]);
+
   // Update selected lesson when allLessons changes
   useEffect(() => {
-    if (allLessons.length > 0) {
+    if (allLessons.length > 0 && !selectedLesson) {
       setSelectedLesson(allLessons[0]);
     }
-  }, [allLessons]);
+  }, [allLessons, selectedLesson]);
 
   // Accordion state for curriculum sections
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -492,11 +554,28 @@ const REVIEW_CHECKLIST_ITEMS = [
 
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Promotional Video</span>
-                    <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 aspect-video flex items-center justify-center">
+                    <div className="w-full">
                       {reviewData.promoVideoUrl ? (
-                        <video controls src={reviewData.promoVideoUrl} className="w-full h-full object-cover" />
+                        <VideoLessonPlayer
+                          key={reviewData.promoVideoUrl}
+                          showDetailsBanner={false}
+                          lesson={{
+                            id: `review-promo-${reviewData.id}`,
+                            moduleId: 'promo',
+                            moduleTitle: 'Course Overview',
+                            title: `${reviewData.title} - Promotional Video`,
+                            duration: '02:00',
+                            type: 'video',
+                            isCompleted: false,
+                            isBookmarked: false,
+                            videoUrl: reviewData.promoVideoUrl,
+                            videoPoster: reviewData.thumbnail || '',
+                          }}
+                        />
                       ) : (
-                        <span className="text-xs text-slate-500">No promotional video uploaded</span>
+                        <div className="aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
+                          <span className="text-xs text-slate-500">No promotional video uploaded</span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -596,7 +675,7 @@ const REVIEW_CHECKLIST_ITEMS = [
           {/* CURRICULUM REVIEW PART */}
           <div id="review-part-curriculum">
             <Card className="p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex flex-wrap items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-2">
                 <div>
                   <h2 className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <FiLayers className="w-5 h-5 text-indigo-500" /> Curriculum Review
@@ -605,12 +684,23 @@ const REVIEW_CHECKLIST_ITEMS = [
                     {summaryMetrics.totalSections} Sections • {summaryMetrics.totalLessons} Lessons ({summaryMetrics.estimatedDurationHours} Hours Total)
                   </p>
                 </div>
-                <Badge variant="neutral">Curriculum Tree</Badge>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border transition-colors ${
+                    inspectedLessonsCount === allLessons.length && allLessons.length > 0
+                      ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm'
+                      : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  }`}>
+                    <FiCheckCircle className="w-3.5 h-3.5" />
+                    <span>{inspectedLessonsCount}/{allLessons.length} Inspected</span>
+                  </span>
+                  <Badge variant="neutral">Curriculum Tree</Badge>
+                </div>
               </div>
 
               <div className="space-y-4">
                 {reviewData.sections.map((sec, sIdx) => {
                   const isExpanded = !!expandedSections[sec.id];
+                  const sectionInspectedCount = sec.lessons.filter((l) => inspectedLessons[l.id]).length;
                   return (
                     <div key={sec.id} className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-800/20">
                       <button
@@ -618,8 +708,12 @@ const REVIEW_CHECKLIST_ITEMS = [
                         className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-100 dark:hover:bg-slate-800/70 transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
-                            {sIdx + 1}
+                          <div className={`w-7 h-7 rounded-xl font-bold text-xs flex items-center justify-center transition-colors ${
+                            sectionInspectedCount === sec.lessons.length && sec.lessons.length > 0
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-indigo-600 text-white'
+                          }`}>
+                            {sectionInspectedCount === sec.lessons.length && sec.lessons.length > 0 ? '✓' : sIdx + 1}
                           </div>
                           <div>
                             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -629,8 +723,10 @@ const REVIEW_CHECKLIST_ITEMS = [
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-slate-400 font-semibold">{sec.lessons.length} Lessons</span>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                            {sectionInspectedCount}/{sec.lessons.length} Inspected ✓
+                          </span>
                           {isExpanded ? <FiChevronUp className="w-4 h-4 text-slate-400" /> : <FiChevronDown className="w-4 h-4 text-slate-400" />}
                         </div>
                       </button>
@@ -645,19 +741,39 @@ const REVIEW_CHECKLIST_ITEMS = [
                           >
                             {sec.lessons.map((les, lIdx) => {
                               const isSelected = selectedLesson?.id === les.id;
+                              const isInspected = !!inspectedLessons[les.id];
                               return (
                                 <div
                                   key={les.id}
                                   className={`p-3.5 px-5 flex items-center justify-between gap-3 text-xs transition-colors ${
-                                    isSelected ? 'bg-amber-50 dark:bg-amber-950/40 border-l-4 border-l-amber-500' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                                    isSelected
+                                      ? 'bg-amber-50 dark:bg-amber-950/40 border-l-4 border-l-amber-500'
+                                      : isInspected
+                                      ? 'bg-emerald-50/30 dark:bg-emerald-950/10 hover:bg-emerald-50/50'
+                                      : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
                                   }`}
                                 >
                                   <div className="flex items-center gap-3">
-                                    <span className="font-mono text-slate-400 text-[11px] font-bold">
-                                      {sIdx + 1}.{lIdx + 1}
-                                    </span>
+                                    <div
+                                      onClick={(e) => toggleLessonInspected(les.id, e)}
+                                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold cursor-pointer transition-all ${
+                                        isInspected
+                                          ? 'bg-emerald-500 text-white shadow-xs'
+                                          : 'border border-slate-300 dark:border-slate-600 text-slate-400 hover:border-emerald-500'
+                                      }`}
+                                      title={isInspected ? 'Inspected! Click to unmark' : 'Click to mark as Inspected'}
+                                    >
+                                      {isInspected ? '✓' : `${sIdx + 1}.${lIdx + 1}`}
+                                    </div>
                                     <div>
-                                      <h4 className="font-bold text-slate-900 dark:text-slate-100">{les.title}</h4>
+                                      <div className="flex items-center gap-2">
+                                        <h4 className="font-bold text-slate-900 dark:text-slate-100">{les.title}</h4>
+                                        {isInspected && (
+                                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded border border-emerald-300 dark:border-emerald-800">
+                                            ✓ Inspected
+                                          </span>
+                                        )}
+                                      </div>
                                       <span className="text-[10px] text-slate-400">
                                         {les.type === 'PDF' ? 'PDF Document' : `${les.durationMinutes || 0} Mins • Video`}
                                       </span>
@@ -665,19 +781,33 @@ const REVIEW_CHECKLIST_ITEMS = [
                                   </div>
 
                                   <div className="flex items-center gap-2">
-                                    <Badge variant={les.status === 'Published' ? 'success' : 'neutral'}>
+                                    <Badge
+                                      variant={
+                                        les.status === 'Published'
+                                          ? 'success'
+                                          : les.status === 'Under Review'
+                                          ? 'warning'
+                                          : les.status === 'Ready'
+                                          ? 'info'
+                                          : 'neutral'
+                                      }
+                                    >
                                       {les.status}
                                     </Badge>
                                     <Button
                                       size="sm"
-                                      variant={isSelected ? 'primary' : 'outline'}
+                                      variant={isSelected ? 'primary' : isInspected ? 'outline' : 'secondary'}
                                       onClick={() => {
                                         setSelectedLesson(les);
                                         scrollToSection('content');
                                       }}
-                                      className="text-xs py-1 px-3 rounded-lg"
+                                      className={`text-xs py-1 px-3 rounded-lg font-bold flex items-center gap-1 ${
+                                        isInspected && !isSelected
+                                          ? 'border-emerald-400 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/40'
+                                          : ''
+                                      }`}
                                     >
-                                      {isSelected ? 'Previewing' : 'Inspect'}
+                                      {isSelected ? 'Previewing' : isInspected ? '✓ Inspected' : 'Inspect'}
                                     </Button>
                                   </div>
                                 </div>
@@ -693,16 +823,17 @@ const REVIEW_CHECKLIST_ITEMS = [
             </Card>
           </div>
 
-          {/* LESSON CONTENT PREVIEW PART */}
+          {/* LESSON CONTENT PREVIEW PART (STUDENT LEARNING PLAYER EXPERIENCE) */}
           <div id="review-part-content">
             <Card className="p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-6">
-              <div className="flex flex-wrap items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-3">
+              {/* Header with Title and Quick Lesson Selector */}
+              <div className="flex flex-wrap items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 gap-3">
                 <div>
                   <h2 className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <FiVideo className="w-5 h-5 text-purple-500" /> Lesson Content Inspection
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Preview videos, PDF notes, text content & downloadable resources.
+                    Live student player view — verify video playback, PDF documents, text reading modules & resources.
                   </p>
                 </div>
 
@@ -715,11 +846,11 @@ const REVIEW_CHECKLIST_ITEMS = [
                         const l = allLessons.find((item) => item.id === e.target.value);
                         if (l) setSelectedLesson(l);
                       }}
-                      className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold max-w-[240px] truncate"
                     >
                       {allLessons.map((l) => (
                         <option key={l.id} value={l.id}>
-                          [{l.type}] {l.title}
+                          {inspectedLessons[l.id] ? '✓ ' : '• '}[{l.type}] {l.title}
                         </option>
                       ))}
                     </select>
@@ -728,15 +859,16 @@ const REVIEW_CHECKLIST_ITEMS = [
               </div>
 
               {/* Active Lesson Content Box */}
-              {!selectedLesson ? (
+              {!selectedLesson || !playerLessonAdapter ? (
                 <div className="p-8 text-center text-xs text-slate-400">
                   No lessons found in this course.
                 </div>
               ) : (
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-4">
+                  {/* Lesson Meta Banner */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
                     <div>
-                      <span className="text-[10px] font-bold uppercase text-purple-600 dark:text-purple-400">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block">
                         {selectedLesson.sectionTitle}
                       </span>
                       <h3 className="text-base font-black text-slate-900 dark:text-slate-100">
@@ -744,150 +876,213 @@ const REVIEW_CHECKLIST_ITEMS = [
                       </h3>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="neutral">Status: {selectedLesson.status}</Badge>
+                      {/* Inspected Status Badge / Interactive Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => toggleLessonInspected(selectedLesson.id)}
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs ${
+                          inspectedLessons[selectedLesson.id]
+                            ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-emerald-100 hover:text-emerald-800'
+                        }`}
+                        title={inspectedLessons[selectedLesson.id] ? 'Click to unmark inspection' : 'Click to mark as inspected'}
+                      >
+                        <FiCheckCircle className="w-3.5 h-3.5" />
+                        <span>{inspectedLessons[selectedLesson.id] ? 'Inspected ✓' : 'Mark as Inspected'}</span>
+                      </button>
+
+                      <Badge
+                        variant={
+                          selectedLesson.status === 'Published'
+                            ? 'success'
+                            : selectedLesson.status === 'Under Review'
+                            ? 'warning'
+                            : selectedLesson.status === 'Ready'
+                            ? 'info'
+                            : 'neutral'
+                        }
+                      >
+                        Status: {selectedLesson.status}
+                      </Badge>
                       <Badge variant="primary">{selectedLesson.type}</Badge>
                     </div>
                   </div>
 
-                {/* 1. PDF Lesson Primary Viewer */}
-                {selectedLesson.type === 'PDF' ? (
-                  <div className="space-y-2">
-                    <span className="text-xs font-black uppercase text-slate-400 flex items-center gap-1.5">
-                      <FiFileText className="w-4 h-4 text-rose-500" /> PDF Document Reader
-                    </span>
-                    {selectedLesson.pdfUrl ? (
-                      <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-xl flex flex-col h-[480px]">
-                        <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs px-4">
-                          <div className="flex items-center gap-2.5 text-slate-200 font-bold truncate">
-                            <FiFileText className="w-4 h-4 text-rose-500 shrink-0" />
-                            <span className="truncate">{selectedLesson.title} - Document.pdf</span>
-                            <span className="text-[10px] text-slate-400 font-normal">
-                              ({selectedLesson.pdfPageCount || 1} Page{(selectedLesson.pdfPageCount || 1) === 1 ? '' : 's'})
-                            </span>
-                          </div>
-                          <a
-                            href={selectedLesson.pdfUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
-                          >
-                            <FiDownload className="w-3.5 h-3.5" /> Open / Download PDF
-                          </a>
-                        </div>
-                        <iframe
-                          src={selectedLesson.pdfUrl}
-                          title={selectedLesson.title}
-                          className="w-full flex-1 border-0 bg-slate-900"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-full p-8 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center text-slate-400 text-xs text-center">
-                        <FiFileText className="w-8 h-8 text-slate-600 mb-2" />
-                        <span className="font-bold text-slate-300">No PDF document attached</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* 2. Video Lesson Primary Viewer */
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <span className="text-xs font-black uppercase text-slate-400 flex items-center gap-1.5">
-                        <FiVideo className="w-4 h-4 text-purple-500" /> Video Player
-                      </span>
-                      <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 aspect-video flex items-center justify-center shadow-lg">
-                        {selectedLesson.videoUrl ? (
-                          selectedLesson.videoUrl.includes('youtube.com') ||
-                          selectedLesson.videoUrl.includes('youtu.be') ||
-                          selectedLesson.videoUrl.includes('vimeo.com') ? (
-                            <iframe
-                              key={selectedLesson.videoUrl}
-                              src={formatVideoEmbedUrl(selectedLesson.videoUrl)}
-                              title={selectedLesson.title}
-                              className="absolute inset-0 w-full h-full border-0 z-0"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
-                          ) : (
-                            <video
-                              key={selectedLesson.videoUrl}
-                              controls
-                              playsInline
-                              src={selectedLesson.videoUrl}
-                              className="w-full h-full object-contain bg-black"
-                            >
-                              Your browser does not support HTML5 video playback.
-                            </video>
-                          )
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center">
-                            <FiVideo className="w-8 h-8 text-slate-600 mb-2" />
-                            <span className="font-bold text-slate-300">Video not uploaded</span>
-                          </div>
+                  {/* 1. Content Tabs Header (Exactly like Student Player) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-sm flex items-center justify-between gap-2 overflow-x-auto custom-scrollbar">
+                    <div className="flex items-center gap-1.5" role="tablist" aria-label="Lesson content tabs">
+                      <button
+                        role="tab"
+                        aria-selected={activeLessonTab === 'video'}
+                        onClick={() => setActiveLessonTab('video')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          activeLessonTab === 'video'
+                            ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <FiPlayCircle className="w-4 h-4" />
+                        <span>Video Lesson</span>
+                      </button>
+
+                      <button
+                        role="tab"
+                        aria-selected={activeLessonTab === 'pdf'}
+                        onClick={() => setActiveLessonTab('pdf')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          activeLessonTab === 'pdf'
+                            ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <FiFileText className="w-4 h-4" />
+                        <span>PDF Notes</span>
+                        {selectedLesson.pdfUrl && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                         )}
-                      </div>
+                      </button>
+
+                      <button
+                        role="tab"
+                        aria-selected={activeLessonTab === 'text'}
+                        onClick={() => setActiveLessonTab('text')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          activeLessonTab === 'text'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <FiFile className="w-4 h-4" />
+                        <span>Text Lesson</span>
+                        {selectedLesson.textContent && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        )}
+                      </button>
+
+                      <button
+                        role="tab"
+                        aria-selected={activeLessonTab === 'resources'}
+                        onClick={() => setActiveLessonTab('resources')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          activeLessonTab === 'resources'
+                            ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <FiFolder className="w-4 h-4" />
+                        <span>Resources</span>
+                        {selectedLesson.resources && selectedLesson.resources.length > 0 && (
+                          <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                            {selectedLesson.resources.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Tab Content Display Area (Student Player Components) */}
+                  <div className="relative min-h-[380px]">
+                    <AnimatePresence mode="wait">
+                      {activeLessonTab === 'video' && (
+                        <motion.div
+                          key={`video-${selectedLesson.id}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <VideoLessonPlayer lesson={playerLessonAdapter} />
+                        </motion.div>
+                      )}
+
+                      {activeLessonTab === 'pdf' && (
+                        <motion.div
+                          key={`pdf-${selectedLesson.id}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <PdfNotesViewer lesson={playerLessonAdapter} />
+                        </motion.div>
+                      )}
+
+                      {activeLessonTab === 'text' && (
+                        <motion.div
+                          key={`text-${selectedLesson.id}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <TextLessonContent lesson={playerLessonAdapter} />
+                        </motion.div>
+                      )}
+
+                      {activeLessonTab === 'resources' && (
+                        <motion.div
+                          key={`res-${selectedLesson.id}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <ResourcesList resources={playerLessonAdapter.resources} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* 3. Interactive Lesson Action & Navigation Bar (Directly Below Player Canvas) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                    {/* Left: Previous Lesson & Mark as Complete / Inspected */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                      <Button
+                        variant="outline"
+                        size="md"
+                        onClick={handlePrevLesson}
+                        disabled={!hasPreviousLesson}
+                        className="flex items-center gap-1.5 disabled:opacity-40 text-xs font-bold"
+                        aria-label="Previous Lesson"
+                      >
+                        <FiChevronLeft className="w-4 h-4" />
+                        <span>Previous</span>
+                      </Button>
+
+                      <Button
+                        variant={inspectedLessons[selectedLesson.id] ? 'outline' : 'primary'}
+                        size="md"
+                        onClick={() => toggleLessonInspected(selectedLesson.id)}
+                        className={`flex items-center gap-2 font-bold flex-1 sm:flex-none justify-center text-xs ${
+                          inspectedLessons[selectedLesson.id]
+                            ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 bg-emerald-50/50 dark:bg-emerald-950/20'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20'
+                        }`}
+                      >
+                        <FiCheckCircle className="w-4 h-4" />
+                        <span>{inspectedLessons[selectedLesson.id] ? 'Inspected ✓' : 'Mark as Inspected'}</span>
+                      </Button>
                     </div>
 
-                    {/* Supplementary PDF Notes for Video Lessons (if present) */}
-                    {selectedLesson.pdfUrl && (
-                      <div className="space-y-1.5 pt-2">
-                        <span className="text-xs font-black uppercase text-slate-400 flex items-center gap-1.5">
-                          <FiFileText className="w-4 h-4 text-rose-500" /> Supplementary PDF Notes
-                        </span>
-                        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-3">
-                            <FiFileText className="w-5 h-5 text-rose-500 shrink-0" />
-                            <div>
-                              <h5 className="font-bold text-slate-900 dark:text-slate-100">
-                                {selectedLesson.title} - Notes.pdf
-                              </h5>
-                              <span className="text-[10px] text-slate-400">{selectedLesson.pdfPageCount || 1} Page(s)</span>
-                            </div>
-                          </div>
-                          <a
-                            href={selectedLesson.pdfUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-200 flex items-center gap-1"
-                          >
-                            <FiDownload className="w-3.5 h-3.5" /> View PDF
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                    {/* Right: Counter and Next Lesson Button */}
+                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                        Lesson <span className="font-bold text-slate-800 dark:text-slate-200">{currentLessonIndex + 1}</span> of <span className="font-bold text-slate-800 dark:text-slate-200">{allLessons.length}</span>
+                      </span>
 
-                {/* Text Content */}
-                <div className="space-y-1.5 pt-2">
-                  <span className="text-xs font-black uppercase text-slate-400 flex items-center gap-1.5">
-                    <FiFile className="w-4 h-4 text-indigo-500" /> Text Lesson
-                  </span>
-                  <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 font-mono whitespace-pre-line leading-relaxed">
-                    {selectedLesson.textContent || 'Standard text notes and summary.'}
-                  </div>
-                </div>
-
-                {/* Downloadable Resources */}
-                <div className="space-y-1.5 pt-2">
-                  <span className="text-xs font-black uppercase text-slate-400 flex items-center gap-1.5">
-                    <FiDownload className="w-4 h-4 text-emerald-500" /> Downloadable Resources
-                  </span>
-                  {selectedLesson.resources.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      {selectedLesson.resources.map((res) => (
-                        <div key={res.id} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
-                          <span className="font-bold text-slate-900 dark:text-slate-100 truncate">{res.name}</span>
-                          <a href={res.downloadUrl} download className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-200">
-                            <FiDownload className="w-3.5 h-3.5" />
-                          </a>
-                        </div>
-                      ))}
+                      <Button
+                        variant="primary"
+                        size="md"
+                        onClick={handleNextLesson}
+                        className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-md shadow-brand-600/20"
+                        aria-label="Next Lesson"
+                      >
+                        <span>{hasNextLesson ? 'Next Lesson' : 'All Lessons Inspected (Next)'}</span>
+                        <FiChevronRight className="w-4 h-4" />
+                      </Button>
                     </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic bg-white/50 dark:bg-slate-900/50 p-3 rounded-xl">No resource files attached</p>
-                  )}
+                  </div>
                 </div>
-              </div>
               )}
             </Card>
           </div>
@@ -934,12 +1129,57 @@ const REVIEW_CHECKLIST_ITEMS = [
                           </ul>
                         </div>
                       )}
-                      {asg.attachmentFileName && (
-                        <div className="p-2.5 bg-indigo-50/50 dark:bg-indigo-950/30 rounded-xl border border-indigo-200/50 dark:border-indigo-800/50 flex items-center justify-between">
-                          <span className="font-bold text-slate-800 dark:text-slate-200">Attachment: {asg.attachmentFileName}</span>
-                          <a href={asg.attachmentUrl || '#'} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
-                            Preview File
-                          </a>
+                      {(asg.attachmentFileName || asg.attachmentUrl || (asg as any).attachmentName) && (
+                        <div className="p-3.5 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                              <FiFileText className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-extrabold text-slate-800 dark:text-slate-200 truncate text-xs">
+                                  {asg.attachmentFileName || (asg as any).attachmentName || 'Assignment Reference / Template'}
+                                </span>
+                                {asg.attachmentSize && (
+                                  <span className="text-[10px] text-slate-500 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 shrink-0 font-mono">
+                                    {asg.attachmentSize}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold block mt-0.5">
+                                Reference Material / Starter Template
+                              </span>
+                            </div>
+                          </div>
+                          {asg.attachmentUrl && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewAttachment({
+                                    url: asg.attachmentUrl!,
+                                    name: asg.attachmentFileName || (asg as any).attachmentName || `${asg.title} Reference File`,
+                                  })
+                                }
+                                className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                                title="View & Inspect File"
+                              >
+                                <FiEye className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                <span>View File</span>
+                              </button>
+
+                              <a
+                                href={asg.attachmentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                                title="Download to computer"
+                              >
+                                <FiDownload className="w-3.5 h-3.5" />
+                                <span>Download</span>
+                              </a>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1304,6 +1544,108 @@ const REVIEW_CHECKLIST_ITEMS = [
         </div>
 
       </div>
+
+      {/* Interactive Attachment In-App Preview Modal */}
+      <AnimatePresence>
+        {previewAttachment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/75 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-4xl max-h-[90vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <FiFileText className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate">
+                      {previewAttachment.name}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Instructor Assignment Reference Material / Starter Template
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href={previewAttachment.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    <FiEye className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Open in New Tab</span>
+                  </a>
+
+                  <a
+                    href={previewAttachment.url}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                  >
+                    <FiDownload className="w-3.5 h-3.5" />
+                    <span>Download</span>
+                  </a>
+
+                  <button
+                    onClick={() => setPreviewAttachment(null)}
+                    className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                  >
+                    <FiX className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body / Viewer */}
+              <div className="flex-1 min-h-[400px] max-h-[calc(90vh-140px)] overflow-y-auto p-4 bg-slate-100/60 dark:bg-slate-950 flex flex-col items-center justify-center">
+                {previewAttachment.url.toLowerCase().endsWith('.pdf') || previewAttachment.url.includes('.pdf') ? (
+                  <iframe
+                    src={previewAttachment.url}
+                    title={previewAttachment.name}
+                    className="w-full h-[65vh] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner bg-white"
+                  />
+                ) : previewAttachment.url.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i) ? (
+                  <img
+                    src={previewAttachment.url}
+                    alt={previewAttachment.name}
+                    className="max-h-[65vh] max-w-full object-contain rounded-2xl shadow-md"
+                  />
+                ) : (
+                  <div className="text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-md space-y-4 shadow-sm">
+                    <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-2xl">
+                      📁
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
+                        {previewAttachment.name}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-1">
+                        This file format (.zip / .docx / archive) can be viewed in your browser or downloaded directly.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 pt-2">
+                      <a
+                        href={previewAttachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-colors"
+                      >
+                        <FiDownload className="w-4 h-4" /> Download Attachment
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

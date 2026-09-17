@@ -9,6 +9,7 @@ import {
 import { logger } from '../utils/logger';
 import { StorageService } from './storage.service';
 import { NotificationService } from './notification.service';
+import { EmailService } from './email.service';
 import { payoutService } from './payout.service';
 
 // In-memory cache for category name to ID mapping (10 min TTL)
@@ -1124,6 +1125,8 @@ export class CourseService {
 
     if (filters.approvalStatus && filters.approvalStatus !== 'All') {
       query = query.eq('approval_status', filters.approvalStatus);
+    } else if (filters.approvalStatus === 'All') {
+      // When All is requested, do not filter out draft courses
     } else {
       // By default, Admin Course Management only lists courses submitted for approval (Pending Approval, Approved, Rejected, Archived)
       // and NOT incomplete private instructor drafts.
@@ -1176,7 +1179,7 @@ export class CourseService {
         rejection_reason: null,
       })
       .eq('id', courseId)
-      .select('*, profiles:instructor_id(full_name, avatar_url), categories:category_id(name)')
+      .select('*, profiles:instructor_id(full_name, avatar_url, email), categories:category_id(name)')
       .single();
 
     if (updateErr || !updated) {
@@ -1192,7 +1195,7 @@ export class CourseService {
       feedback: 'Course approved and published to platform catalog.',
     });
 
-    // Dispatch notification to Instructor (asynchronous & non-blocking)
+    // Dispatch in-app notification to Instructor
     try {
       if (updated.instructor_id) {
         await NotificationService.createNotification({
@@ -1207,6 +1210,23 @@ export class CourseService {
       }
     } catch (notifErr: any) {
       logger.warn(`Failed to dispatch course approval notification: ${notifErr.message}`);
+    }
+
+    // Dispatch email notification to Instructor (asynchronous & non-blocking)
+    try {
+      const instructorEmail = updated.profiles?.email;
+      if (instructorEmail) {
+        EmailService.sendCourseApprovalEmail({
+          to: instructorEmail,
+          instructorName: updated.profiles?.full_name || 'Instructor',
+          courseTitle: updated.title,
+          courseId,
+        }).catch((emailErr) => {
+          logger.warn(`Non-blocking: could not send course approval email to ${instructorEmail}:`, emailErr);
+        });
+      }
+    } catch (emailErr: any) {
+      logger.warn(`Failed to trigger course approval email: ${emailErr.message}`);
     }
 
     return this.formatCourse(updated);
@@ -1236,7 +1256,7 @@ export class CourseService {
         rejection_reason: rejectionReason.trim(),
       })
       .eq('id', courseId)
-      .select('*, profiles:instructor_id(full_name, avatar_url), categories:category_id(name)')
+      .select('*, profiles:instructor_id(full_name, avatar_url, email), categories:category_id(name)')
       .single();
 
     if (updateErr || !updated) {
@@ -1252,7 +1272,7 @@ export class CourseService {
       feedback: rejectionReason.trim(),
     });
 
-    // Dispatch notification to Instructor (asynchronous & non-blocking)
+    // Dispatch in-app notification to Instructor
     try {
       if (updated.instructor_id) {
         await NotificationService.createNotification({
@@ -1267,6 +1287,24 @@ export class CourseService {
       }
     } catch (notifErr: any) {
       logger.warn(`Failed to dispatch course rejection notification: ${notifErr.message}`);
+    }
+
+    // Dispatch email notification to Instructor (asynchronous & non-blocking)
+    try {
+      const instructorEmail = updated.profiles?.email;
+      if (instructorEmail) {
+        EmailService.sendCourseRejectionEmail({
+          to: instructorEmail,
+          instructorName: updated.profiles?.full_name || 'Instructor',
+          courseTitle: updated.title,
+          reason: rejectionReason.trim(),
+          courseId,
+        }).catch((emailErr) => {
+          logger.warn(`Non-blocking: could not send course rejection email to ${instructorEmail}:`, emailErr);
+        });
+      }
+    } catch (emailErr: any) {
+      logger.warn(`Failed to trigger course rejection email: ${emailErr.message}`);
     }
 
     return this.formatCourse(updated);
@@ -1356,6 +1394,17 @@ export class CourseService {
                 ]
               : [];
 
+            // Compute dynamic lifecycle status for lesson
+            const isContentUploaded = Boolean(playableVideoUrl || readablePdfUrl || l.content || l.resource_url);
+            const lessonStatus: 'Published' | 'Under Review' | 'Ready' | 'Draft' =
+              course.approvalStatus === 'Approved' || course.courseStatus === 'Published'
+                ? 'Published'
+                : course.approvalStatus === 'Pending Approval'
+                ? 'Under Review'
+                : isContentUploaded
+                ? 'Ready'
+                : 'Draft';
+
             return {
               id: l.id,
               sectionId: m.id,
@@ -1363,7 +1412,7 @@ export class CourseService {
               title: l.title,
               type: (l.lesson_type || 'Video') as 'Video' | 'PDF' | 'Text' | 'Resource',
               durationMinutes: Number(l.duration_minutes) || 10,
-              status: 'Published' as const,
+              status: lessonStatus,
               videoUrl: playableVideoUrl,
               pdfUrl: readablePdfUrl,
               pdfPageCount: 1,
@@ -1391,14 +1440,38 @@ export class CourseService {
       .order('position', { ascending: true });
 
     const assignments = (assignmentsData || []).map((a: any) => {
-      let instructionsList: string[] = [];
-      if (a.instructions) {
-        if (typeof a.instructions === 'string') {
-          instructionsList = a.instructions.split('\n').filter(Boolean);
-        } else if (Array.isArray(a.instructions)) {
-          instructionsList = a.instructions;
+      let rawInstructions = a.instructions || '';
+      let attachmentUrl = a.attachment_url || undefined;
+      let attachmentName = a.attachment_name || undefined;
+      let attachmentSize = a.attachment_size || undefined;
+      let attachmentType = a.attachment_type || undefined;
+
+      if (typeof rawInstructions === 'string') {
+        const match = rawInstructions.match(/<!-- ATTACHMENT:(\{.*?\}) -->/);
+        if (match && match[1]) {
+          try {
+            const meta = JSON.parse(match[1]);
+            if (!attachmentUrl && meta.url) attachmentUrl = meta.url;
+            if (!attachmentName && meta.name) attachmentName = meta.name;
+            if (!attachmentSize && meta.size) attachmentSize = meta.size;
+            if (!attachmentType && meta.type) attachmentType = meta.type;
+            rawInstructions = rawInstructions.replace(/<!-- ATTACHMENT:(\{.*?\}) -->\n?/, '').trim();
+          } catch {
+            // ignore
+          }
         }
       }
+
+      let instructionsList: string[] = [];
+      if (rawInstructions) {
+        if (typeof rawInstructions === 'string') {
+          instructionsList = rawInstructions.split('\n').filter(Boolean);
+        } else if (Array.isArray(rawInstructions)) {
+          instructionsList = rawInstructions;
+        }
+      }
+
+      const attachmentFileName = attachmentName || (attachmentUrl ? attachmentUrl.split('/').pop() : undefined);
 
       return {
         id: a.id,
@@ -1408,9 +1481,11 @@ export class CourseService {
         maxMarks: Number(a.max_score) || 100,
         passingMarks: Number(a.passing_score) || 60,
         isMandatory: true,
-        attachmentFileName: undefined,
-        attachmentSize: undefined,
-        attachmentUrl: undefined,
+        attachmentFileName,
+        attachmentName: attachmentFileName,
+        attachmentSize: attachmentSize || (attachmentUrl ? 'Document' : undefined),
+        attachmentUrl: attachmentUrl || undefined,
+        attachmentType: attachmentType || undefined,
       };
     });
 

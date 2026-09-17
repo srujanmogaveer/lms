@@ -145,11 +145,21 @@ export const InstructorProfileSettings: React.FC = () => {
   // Handle Save Profile Changes
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanMobile = (profile.mobileNumber || '').trim();
+    if (cleanMobile && cleanMobile.length !== 10) {
+      showToast('Mobile number must be exactly 10 digits.', 'error');
+      return;
+    }
+    if (cleanMobile && !/^\d{10}$/.test(cleanMobile)) {
+      showToast('Mobile number must contain digits only.', 'error');
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updateProfile({
         fullName: profile.fullName,
-        phone: profile.mobileNumber,
+        phone: cleanMobile,
         dateOfBirth: profile.dateOfBirth,
         gender: profile.gender,
         country: profile.country,
@@ -364,14 +374,25 @@ export const InstructorProfileSettings: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Mobile Number (+91) *
+                Mobile Number (+91)
               </label>
-              <input
-                type="text"
-                value={profile.mobileNumber}
-                onChange={(e) => setProfile({ ...profile, mobileNumber: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  placeholder="9876543210"
+                  value={profile.mobileNumber}
+                  onChange={(e) => {
+                    const numericOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setProfile({ ...profile, mobileNumber: numericOnly });
+                  }}
+                  className="w-full pl-11 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-xs"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">Must be exactly 10 digits (numbers only).</p>
             </div>
 
             <div>

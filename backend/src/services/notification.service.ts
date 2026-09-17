@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../config/supabase';
 import { ApiError } from '../utils/apiResponse';
 import { NotificationItem, NotificationCategory, NotificationType } from '../types';
 import { logger } from '../utils/logger';
+import { EmailService } from './email.service';
 
 export class NotificationService {
   // In-memory runtime cache for resilience
@@ -499,6 +500,7 @@ export class NotificationService {
    */
   public static async notifyInstructorOfApproval(instructorId: string): Promise<void> {
     try {
+      // 1. In-App Notification
       await this.createNotification({
         userId: instructorId,
         title: 'Instructor Application Approved! 🎉',
@@ -508,6 +510,26 @@ export class NotificationService {
         actionUrl: '/instructor',
         sourceId: `approval-${instructorId}`,
       });
+
+      // 2. Email Notification (via Gmail SMTP / Resend)
+      try {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('email, full_name')
+          .eq('id', instructorId)
+          .single();
+
+        if (profile?.email) {
+          EmailService.sendInstructorApprovalEmail({
+            to: profile.email,
+            fullName: profile.full_name || 'Instructor',
+          }).catch((emailErr) => {
+            logger.warn(`Non-blocking: could not dispatch approval email to ${profile.email}:`, emailErr);
+          });
+        }
+      } catch (profileErr) {
+        logger.warn(`Could not lookup instructor email for approval notification: ${instructorId}`, profileErr);
+      }
     } catch (err: any) {
       logger.warn(`Failed to send approval notification to instructor ${instructorId}:`, err);
     }
@@ -518,6 +540,7 @@ export class NotificationService {
    */
   public static async notifyInstructorOfRejection(instructorId: string, reason?: string): Promise<void> {
     try {
+      // 1. In-App Notification
       await this.createNotification({
         userId: instructorId,
         title: 'Instructor Application Status Update',
@@ -529,9 +552,31 @@ export class NotificationService {
         actionUrl: '/auth/instructor-login',
         sourceId: `rejection-${instructorId}`,
       });
+
+      // 2. Email Notification
+      try {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('email, full_name')
+          .eq('id', instructorId)
+          .single();
+
+        if (profile?.email) {
+          EmailService.sendInstructorRejectionEmail({
+            to: profile.email,
+            fullName: profile.full_name || 'Instructor',
+            reason,
+          }).catch((emailErr) => {
+            logger.warn(`Non-blocking: could not dispatch rejection email to ${profile.email}:`, emailErr);
+          });
+        }
+      } catch (profileErr) {
+        logger.warn(`Could not lookup instructor email for rejection notification: ${instructorId}`, profileErr);
+      }
     } catch (err: any) {
       logger.warn(`Failed to send rejection notification to instructor ${instructorId}:`, err);
     }
   }
 }
+
 

@@ -10,8 +10,6 @@ import {
   FiVolume2, 
   FiVideo, 
   FiAward, 
-  FiCreditCard,
-  FiBell, 
   FiUser, 
   FiChevronLeft, 
   FiChevronRight, 
@@ -59,8 +57,6 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
     { to: '/student/announcements', label: 'Announcements', icon: FiVolume2 },
     { to: '/student/live', label: 'Live Classes', icon: FiVideo },
     { to: '/student/certificates', label: 'Certificates', icon: FiAward },
-    { to: '/student/payments', label: 'Payment History', icon: FiCreditCard },
-    { to: '/student/notifications', label: 'Notifications', icon: FiBell },
     { to: '/student/profile', label: 'My Profile', icon: FiUser },
   ];
 

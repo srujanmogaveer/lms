@@ -22,6 +22,17 @@ export class AuthService {
     const rawAvatar = row?.avatar_url || fallbackUser?.user_metadata?.avatar_url || fallbackUser?.user_metadata?.picture || null;
     const safeAvatar = rawAvatar && !rawAvatar.includes('photo-1534528741775-53994a69daeb') ? rawAvatar : undefined;
 
+    // Parse category and specialization cleanly:
+    let category = row?.category || fallbackUser?.user_metadata?.category;
+    let specialization = row?.specialization || fallbackUser?.user_metadata?.specialization;
+    if (!category && specialization && specialization.includes('•')) {
+      const parts = specialization.split('•');
+      category = parts[0]?.trim();
+      specialization = parts.slice(1).join('•').trim() || parts[0]?.trim();
+    } else if (!category && specialization && safeRole === 'instructor') {
+      category = specialization;
+    }
+
     return {
       id: row?.id || fallbackUser?.id,
       email: row?.email || fallbackUser?.email,
@@ -48,7 +59,8 @@ export class AuthService {
       instructorApprovalStatus: row?.instructor_approval_status || (safeRole === 'instructor' ? 'pending' : 'approved'),
       qualification: row?.qualification || fallbackUser?.user_metadata?.qualification,
       experience: row?.experience || fallbackUser?.user_metadata?.experience,
-      specialization: row?.specialization || fallbackUser?.user_metadata?.specialization,
+      category: category || undefined,
+      specialization: specialization || row?.specialization || fallbackUser?.user_metadata?.specialization,
       coursesCreatedCount: row?.courses_created_count ?? 0,
       totalStudents: row?.total_students ?? 0,
       instructorRating: row?.instructor_rating ? Number(row.instructor_rating) : 5.0,
@@ -170,13 +182,18 @@ export class AuthService {
     qualification?: string;
     experience?: string;
     specialization?: string;
+    category?: string;
   }): Promise<AuthSessionResponse> {
     const settings = await settingsService.getPlatformSettings();
     if (!settings.enableInstructorRegistration) {
       throw ApiError.forbidden('Instructor registration is currently disabled by platform administrators.');
     }
 
-    const { fullName, email, password, phone, avatarUrl, qualification, experience, specialization } = input;
+    const { fullName, email, password, phone, avatarUrl, qualification, experience, specialization, category } = input;
+
+    const combinedSpecialization = category
+      ? (specialization ? `${category} • ${specialization}` : category)
+      : specialization;
 
     const { data: authData, error: authError } = await supabasePublic.auth.signUp({
       email,
@@ -188,7 +205,8 @@ export class AuthService {
           phone,
           qualification,
           experience,
-          specialization,
+          specialization: combinedSpecialization,
+          category: category || null,
           instructor_approval_status: 'pending',
           avatar_url: avatarUrl || null,
         },
@@ -206,16 +224,23 @@ export class AuthService {
       throw ApiError.internal('Failed to create instructor application');
     }
 
-    // Ensure public.profiles table also explicitly updates avatar_url if provided
-    if (avatarUrl) {
-      try {
+    // Ensure public.profiles table also explicitly updates avatar_url and specialization if provided
+    try {
+      const updates: Record<string, any> = {};
+      if (avatarUrl) updates.avatar_url = avatarUrl;
+      if (combinedSpecialization) updates.specialization = combinedSpecialization;
+      if (qualification) updates.qualification = qualification;
+      if (experience) updates.experience = experience;
+      if (phone) updates.phone = phone;
+
+      if (Object.keys(updates).length > 0) {
         await supabaseAdmin
           .from('profiles')
-          .update({ avatar_url: avatarUrl })
+          .update(updates)
           .eq('id', authData.user.id);
-      } catch (e) {
-        logger.warn('Non-blocking: could not explicitly update avatar_url on profiles table', e);
       }
+    } catch (e) {
+      logger.warn('Non-blocking: could not explicitly update profiles table for new instructor', e);
     }
 
     let profile = await this.getProfileById(authData.user.id);
@@ -228,7 +253,7 @@ export class AuthService {
       id: authData.user.id,
       fullName,
       email,
-      specialization,
+      specialization: category ? `${category} • ${specialization || ''}` : specialization,
     }).catch((notifErr) => {
       logger.warn('Non-blocking: could not notify admins of new instructor registration:', notifErr);
     });

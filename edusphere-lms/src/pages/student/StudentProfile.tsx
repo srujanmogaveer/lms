@@ -14,6 +14,7 @@ import { SkeletonLoader } from '../../components/loaders/Loaders';
 import { useAuth } from '../../contexts/AuthContext';
 import { enrollmentService } from '../../services/enrollmentService';
 import { progressService } from '../../services/progressService';
+import { assignmentService } from '../../services/assignmentService';
 import type { FullStudentProfile } from '../../types';
 
 export const StudentProfile: React.FC = () => {
@@ -90,9 +91,10 @@ export const StudentProfile: React.FC = () => {
     let isMounted = true;
     const loadRealStats = async () => {
       try {
-        const [enrollmentsRes, allProgressRes] = await Promise.all([
-          enrollmentService.getStudentEnrollments().catch(() => ({ success: false, data: [] })),
+        const [enrollmentsRes, allProgressRes, assignmentsRes] = await Promise.all([
+          enrollmentService.getStudentEnrollments(true).catch(() => ({ success: false, data: [] })),
           progressService.getAllCoursesProgress().catch(() => ({ success: false, data: {} })),
+          assignmentService.getStudentEnrolledAssignments().catch(() => ({ success: false, data: [] })),
         ]);
 
         if (!isMounted) return;
@@ -104,7 +106,7 @@ export const StudentProfile: React.FC = () => {
           ? allProgressRes.data
           : {};
 
-        let totalAssignments = 0;
+        let totalAssignmentsFromProgress = 0;
         let totalQuizzes = 0;
         let totalLessonsCompleted = 0;
         let completedCoursesCount = 0;
@@ -112,7 +114,7 @@ export const StudentProfile: React.FC = () => {
 
         Object.values(progressMap).forEach((summary: any) => {
           if (summary.completedAssignmentsCount) {
-            totalAssignments += summary.completedAssignmentsCount;
+            totalAssignmentsFromProgress += summary.completedAssignmentsCount;
           }
           if (summary.quizPassed) {
             totalQuizzes += 1;
@@ -127,6 +129,20 @@ export const StudentProfile: React.FC = () => {
             certificatesCount += 1;
           }
         });
+
+        // Also count directly from student assignments with submitted/graded status
+        let directSubmissionsCount = 0;
+        if (assignmentsRes.success && Array.isArray(assignmentsRes.data)) {
+          directSubmissionsCount = assignmentsRes.data.filter((a: any) =>
+            a.status === 'Submitted' ||
+            a.status === 'Graded' ||
+            a.status === 'Under Review' ||
+            a.userSubmission ||
+            (a.submissions && a.submissions.length > 0)
+          ).length;
+        }
+
+        const totalAssignments = Math.max(totalAssignmentsFromProgress, directSubmissionsCount);
 
         const finalEnrolled = Math.max(enrollments.length, rawProfile?.enrolledCoursesCount || 0);
         const finalCompleted = Math.max(completedCoursesCount, rawProfile?.completedCoursesCount || 0);

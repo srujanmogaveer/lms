@@ -161,6 +161,22 @@ export class QuizController {
     }
   };
 
+  public createQuestionsBatch = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      if (!req.user?.id) throw ApiError.unauthorized('Authentication required');
+      const quizId = req.params.quizId as string;
+      const questionsList = req.body.questions || req.body;
+      const created = await quizService.createQuestionsBatch(req.user.id, quizId, questionsList);
+      sendResponse(res, 201, 'Quiz questions created in batch successfully', created);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public updateQuestion = async (
     req: Request,
     res: Response,

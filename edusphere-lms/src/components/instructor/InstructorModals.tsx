@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BaseModal } from '../dashboard/DashboardModals';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -176,12 +177,13 @@ export const JoinLiveClassModal: React.FC<JoinLiveClassModalProps> = ({
   onClose,
   liveClass,
 }) => {
+  const navigate = useNavigate();
   if (!liveClass) return null;
 
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose} title="Instructor Live Studio Studio Room">
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Instructor Live Studio Room">
       <div className="space-y-4 text-center py-2 text-xs">
-        <div className="w-16 h-16 bg-cyan-100 dark:bg-cyan-950 text-cyan-600 rounded-full flex items-center justify-center mx-auto shadow-md">
+        <div className="w-16 h-16 bg-purple-100 dark:bg-purple-950 text-purple-600 rounded-full flex items-center justify-center mx-auto shadow-md">
           <FiVideo className="w-8 h-8" />
         </div>
 
@@ -198,15 +200,15 @@ export const JoinLiveClassModal: React.FC<JoinLiveClassModalProps> = ({
         <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-left space-y-1 font-mono text-[11px]">
           <div className="flex justify-between">
             <span>Studio Room ID:</span>
-            <span className="font-bold text-cyan-600">{liveClass.roomId}</span>
+            <span className="font-bold text-purple-600">{liveClass.roomId}</span>
           </div>
           <div className="flex justify-between">
             <span>RSVP'd Students:</span>
             <span className="font-bold text-slate-800 dark:text-slate-200">{liveClass.enrolledCount}</span>
           </div>
           <div className="flex justify-between">
-            <span>Time Zone:</span>
-            <span className="font-bold text-slate-800 dark:text-slate-200">Asia/Kolkata (IST)</span>
+            <span>Platform:</span>
+            <span className="font-bold text-purple-600">EduSphere LiveKit WebRTC</span>
           </div>
         </div>
 
@@ -217,8 +219,11 @@ export const JoinLiveClassModal: React.FC<JoinLiveClassModalProps> = ({
         <Button
           variant="primary"
           size="md"
-          className="w-full justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-extrabold py-2.5"
-          onClick={onClose}
+          className="w-full justify-center bg-purple-600 hover:bg-purple-700 text-white font-extrabold py-2.5"
+          onClick={() => {
+            onClose();
+            navigate(`/instructor/live/room/${liveClass.id}`);
+          }}
         >
           Enter Live Broadcast Room
         </Button>

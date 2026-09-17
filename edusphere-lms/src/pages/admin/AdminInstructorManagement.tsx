@@ -19,11 +19,12 @@ import {
   FiLock,
   FiAward,
   FiBriefcase,
+  FiFolder,
   FiUpload,
   FiAlertCircle,
   FiRefreshCw,
   FiShield,
-  FiRotateCcw
+  FiTrash2
 } from 'react-icons/fi';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -39,6 +40,18 @@ import { courseService } from '../../services/courseService';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNotifications } from '../../contexts/NotificationContext';
 import type { InstructorPayoutInfo } from '../../types/payoutTypes';
+
+export const DEFAULT_INSTRUCTOR_CATEGORIES = [
+  'Web Development',
+  'Data Science & AI',
+  'Mobile App Development',
+  'Cloud & DevOps',
+  'Cybersecurity',
+  'UI/UX & Product Design',
+  'Business & Management',
+  'Computer Science & Algorithms',
+  'Other / General',
+];
 
 export interface InstructorCourseItem {
   id: string;
@@ -62,6 +75,7 @@ export interface InstructorRecord {
   qualification: string;
   experience: string;
   specialization: string;
+  category: string;
   bio: string;
   registeredDate: string;
   approvalStatus: ApplicationStatus;
@@ -90,6 +104,11 @@ const mapProfileToInstructorRecord = (
 
   const effectiveCoursesCount = Math.max(courses.length, p.coursesCreatedCount || 0);
 
+  const rawSpecialization = p.specialization || p.qualification || 'Education';
+  const hasCompoundSpec = rawSpecialization.includes('•');
+  const parsedCategory = p.category || (hasCompoundSpec ? rawSpecialization.split('•')[0].trim() : '') || 'General';
+  const parsedSpecialization = hasCompoundSpec ? rawSpecialization.split('•').slice(1).join('•').trim() : rawSpecialization;
+
   return {
     id: p.id,
     instructorId: p.studentIdNumber || `INS-${p.id.slice(0, 8).toUpperCase()}`,
@@ -99,7 +118,8 @@ const mapProfileToInstructorRecord = (
     avatar: p.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
     qualification: p.qualification || 'Instructor',
     experience: p.experience || 'Not specified',
-    specialization: p.specialization || p.qualification || 'Education',
+    specialization: parsedSpecialization || parsedCategory,
+    category: parsedCategory,
     bio: p.bio || `${p.fullName} is an instructor on EduSphere LMS.`,
     registeredDate: regDate,
     approvalStatus,
@@ -117,6 +137,7 @@ export interface InstructorFormData {
   fullName: string;
   email: string;
   mobileNumber: string;
+  category: string;
   qualification: string;
   experience: string;
   password: string;
@@ -140,6 +161,7 @@ export const AdminInstructorManagement: React.FC = () => {
     fullName: '',
     email: '',
     mobileNumber: '',
+    category: 'Web Development',
     qualification: '',
     experience: '',
     password: '',
@@ -272,6 +294,7 @@ export const AdminInstructorManagement: React.FC = () => {
       fullName: '',
       email: '',
       mobileNumber: '',
+      category: 'Web Development',
       qualification: '',
       experience: '',
       password: '',
@@ -281,7 +304,7 @@ export const AdminInstructorManagement: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const sanitizedValue = name === 'mobileNumber' ? value.replace(/\D/g, '').slice(0, 10) : value;
     setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
@@ -390,6 +413,7 @@ export const AdminInstructorManagement: React.FC = () => {
           phone: formattedMobile,
           qualification: formData.qualification.trim(),
           experience: formData.experience.trim(),
+          category: formData.category,
         });
       } catch {
         // Fallback gracefully
@@ -405,6 +429,7 @@ export const AdminInstructorManagement: React.FC = () => {
               mobile: formattedMobile,
               qualification: formData.qualification.trim(),
               experience: formData.experience.trim(),
+              category: formData.category || inst.category,
               avatar: defaultAvatar,
             }
             : inst
@@ -421,8 +446,8 @@ export const AdminInstructorManagement: React.FC = () => {
           phone: formattedMobile,
           qualification: formData.qualification.trim(),
           experience: formData.experience.trim(),
-          specialization: formData.qualification.trim(),
-          bio: `${formData.qualification.trim()} instructor with ${formData.experience.trim()} experience.`,
+          specialization: `${formData.category.trim()} • ${formData.qualification.trim()}`,
+          bio: `${formData.qualification.trim()} instructor in ${formData.category.trim()} with ${formData.experience.trim()} experience.`,
         });
         if (res.success && res.data) {
           const liveRec = mapProfileToInstructorRecord(res.data);
@@ -449,7 +474,8 @@ export const AdminInstructorManagement: React.FC = () => {
         qualification: formData.qualification.trim(),
         experience: formData.experience.trim(),
         specialization: formData.qualification.trim(),
-        bio: `${formData.qualification.trim()} instructor with ${formData.experience.trim()} experience.`,
+        category: formData.category || 'General',
+        bio: `${formData.qualification.trim()} instructor in ${formData.category.trim()} with ${formData.experience.trim()} experience.`,
         registeredDate: 'Just now',
         approvalStatus: 'approved',
         status: 'active',
@@ -538,25 +564,35 @@ export const AdminInstructorManagement: React.FC = () => {
     }
   };
 
-  const handleReopenInstructor = async (id: string) => {
-    try {
-      const res = await adminService.reopenInstructor(id);
-      if (res.success || res.data) {
-        setInstructors((prev) =>
-          prev.map((i) => (i.id === id ? { ...i, approvalStatus: 'pending', status: 'inactive' } : i))
-        );
-        showSuccessAlert('Application Reopened', 'Instructor application restored to pending status.');
-        if (selectedInstructor && selectedInstructor.id === id) {
-          setSelectedInstructor((prev) => (prev ? { ...prev, approvalStatus: 'pending', status: 'inactive' } : null));
+  const handleDeleteInstructor = async (id: string, name?: string) => {
+    const target = instructors.find((i) => i.id === id);
+    const targetName = name || target?.name || 'this instructor';
+    const confirmed = await showConfirmAlert(
+      'Delete Instructor Record?',
+      `Are you sure you want to permanently delete "${targetName}"? This will remove their record from the database and free up their email address for re-registration.`,
+      'Yes, Delete',
+      'Cancel',
+      'warning'
+    );
+
+    if (confirmed) {
+      try {
+        const res: any = await adminService.deleteUser(id);
+        if (res?.success || res?.data || !res?.error) {
+          setInstructors((prev) => prev.filter((i) => i.id !== id));
+          showSuccessAlert('Deleted!', 'Instructor account has been permanently removed.');
+          if (selectedInstructor && selectedInstructor.id === id) {
+            setSelectedInstructor(null);
+          }
+          queryClient.invalidateQueries({ queryKey: ['admin-sidebar-stats'] });
+          queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+          refreshNotifications().catch(() => null);
+        } else {
+          showErrorAlert('Delete Failed', res?.message || 'Could not delete instructor.');
         }
-        queryClient.invalidateQueries({ queryKey: ['admin-sidebar-stats'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
-        refreshNotifications().catch(() => null);
-      } else {
-        showErrorAlert('Reopen Failed', res.message || 'Could not reopen application.');
+      } catch (err: any) {
+        showErrorAlert('Delete Failed', err?.message || 'Server error while deleting instructor.');
       }
-    } catch (err: any) {
-      showErrorAlert('Reopen Failed', err?.message || 'Server error while reopening application.');
     }
   };
 
@@ -606,7 +642,10 @@ export const AdminInstructorManagement: React.FC = () => {
     [instructors]
   );
   const inactiveCount = useMemo(
-    () => instructors.filter((i) => i.status === 'inactive' || i.approvalStatus === 'rejected').length,
+    () =>
+      instructors.filter(
+        (i) => i.approvalStatus === 'rejected' || (i.approvalStatus === 'approved' && i.status === 'inactive')
+      ).length,
     [instructors]
   );
 
@@ -626,7 +665,7 @@ export const AdminInstructorManagement: React.FC = () => {
       } else if (statusFilter === 'Active') {
         matchesStatus = inst.approvalStatus === 'approved' && inst.status === 'active';
       } else if (statusFilter === 'Inactive') {
-        matchesStatus = inst.status === 'inactive';
+        matchesStatus = (inst.approvalStatus === 'approved' && inst.status === 'inactive') || inst.approvalStatus === 'rejected';
       } else if (statusFilter === 'Rejected') {
         matchesStatus = inst.approvalStatus === 'rejected';
       }
@@ -955,22 +994,12 @@ export const AdminInstructorManagement: React.FC = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleReopenInstructor(inst.id)}
-                            className="h-8 px-3 text-xs rounded-xl flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap border-amber-300 dark:border-amber-700/70 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 font-bold"
-                            title="Restore application back to pending status"
+                            onClick={() => handleDeleteInstructor(inst.id, inst.name)}
+                            className="h-8 px-3 text-xs rounded-xl flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap border-rose-300 dark:border-rose-800/80 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-bold"
+                            title="Permanently delete this rejected application"
                           >
-                            <FiRotateCcw className="w-3.5 h-3.5 shrink-0" />
-                            <span>Undo Rejection</span>
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            onClick={() => handleApproveInstructor(inst.id)}
-                            className="h-8 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm shrink-0 whitespace-nowrap"
-                          >
-                            <FiCheck className="w-3.5 h-3.5 shrink-0" />
-                            <span>Approve</span>
+                            <FiTrash2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>Delete</span>
                           </Button>
                         </div>
                       ) : (
@@ -1135,7 +1164,13 @@ export const AdminInstructorManagement: React.FC = () => {
                     <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">
                       {selectedInstructor.name}
                     </h3>
-                    <Badge variant="primary">{selectedInstructor.specialization}</Badge>
+                    <Badge variant="primary" className="flex items-center gap-1">
+                      <FiFolder className="w-3 h-3 text-purple-200" />
+                      {selectedInstructor.category}
+                    </Badge>
+                    {selectedInstructor.specialization && selectedInstructor.specialization !== selectedInstructor.category && (
+                      <Badge variant="neutral">{selectedInstructor.specialization}</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic">
                     "{selectedInstructor.bio}"
@@ -1164,6 +1199,13 @@ export const AdminInstructorManagement: React.FC = () => {
                   </div>
 
                   <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 space-y-1">
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Teaching Category</span>
+                    <span className="font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 truncate">
+                      <FiFolder className="w-3.5 h-3.5 text-purple-500 shrink-0" /> {selectedInstructor.category}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 space-y-1">
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Qualification</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       <FiAward className="w-3.5 h-3.5 text-purple-500 shrink-0" /> {selectedInstructor.qualification}
@@ -1184,7 +1226,7 @@ export const AdminInstructorManagement: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 space-y-1">
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 space-y-1 sm:col-span-3">
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Registration Date</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       <FiClock className="w-3.5 h-3.5 text-slate-400 shrink-0" /> {selectedInstructor.registeredDate}
@@ -1358,22 +1400,9 @@ export const AdminInstructorManagement: React.FC = () => {
                   )}
 
                   {selectedInstructor.approvalStatus === 'rejected' && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleReopenInstructor(selectedInstructor.id)}
-                        className="text-xs py-2 px-4 border-amber-300 dark:border-amber-700/70 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-xl flex items-center gap-1.5 font-bold"
-                      >
-                        <FiRotateCcw className="w-4 h-4" /> Undo Rejection (Restore to Pending)
-                      </Button>
-                      <Button
-                        variant="primary"
-                        onClick={() => handleApproveInstructor(selectedInstructor.id)}
-                        className="text-xs py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center gap-1.5 font-bold"
-                      >
-                        <FiCheck className="w-4 h-4" /> Approve Instructor
-                      </Button>
-                    </div>
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/50 rounded-xl border border-rose-200 dark:border-rose-800/60">
+                      Application Rejected
+                    </span>
                   )}
 
                   {selectedInstructor.approvalStatus === 'approved' && (
@@ -1404,13 +1433,22 @@ export const AdminInstructorManagement: React.FC = () => {
                   )}
                 </div>
 
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedInstructor(null)}
-                  className="text-xs py-2 px-4 rounded-xl"
-                >
-                  Close Details
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleDeleteInstructor(selectedInstructor.id, selectedInstructor.name)}
+                    className="text-xs py-2 px-3.5 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl flex items-center gap-1.5 font-bold"
+                  >
+                    <FiTrash2 className="w-3.5 h-3.5" /> Delete
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedInstructor(null)}
+                    className="text-xs py-2 px-4 rounded-xl"
+                  >
+                    Close Details
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -1578,6 +1616,31 @@ export const AdminInstructorManagement: React.FC = () => {
                         <FiAlertCircle className="w-3 h-3" /> {formErrors.mobileNumber}
                       </p>
                     )}
+                  </div>
+
+                  {/* Teaching Category */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                      Teaching Category <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <FiFolder className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                      <select
+                        name="category"
+                        value={formData.category}
+                        onChange={handleFormChange}
+                        className="w-full pl-10 pr-8 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer appearance-none"
+                      >
+                        {DEFAULT_INSTRUCTOR_CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
+                        ▼
+                      </div>
+                    </div>
                   </div>
 
                   {/* Qualification */}

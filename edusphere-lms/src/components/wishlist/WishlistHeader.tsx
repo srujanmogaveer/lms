@@ -69,11 +69,11 @@ export const WishlistHeader: React.FC<WishlistHeaderProps> = ({
             </div>
             <div className="px-2 border-r border-white/20">
               <span className="text-white/70 block text-[10px] uppercase font-bold">Total Value</span>
-              <span className="text-base font-black text-amber-300">${totalDiscountPrice.toFixed(2)}</span>
+              <span className="text-base font-black text-amber-300">₹{totalDiscountPrice.toLocaleString('en-IN')}</span>
             </div>
             <div className="px-2">
               <span className="text-white/70 block text-[10px] uppercase font-bold">Total Savings</span>
-              <span className="text-base font-black text-emerald-300">${totalSavings.toFixed(2)}</span>
+              <span className="text-base font-black text-emerald-300">₹{totalSavings.toLocaleString('en-IN')}</span>
             </div>
           </div>
 

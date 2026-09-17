@@ -140,8 +140,19 @@ export interface UpdateQuestionPayload {
 // In-memory instant client cache for 0ms navigation
 const instructorQuizzesCache = new Map<string, BackendQuiz[]>();
 const quizDetailsCache = new Map<string, BackendQuiz>();
+const studentEnrolledQuizzesCache = new Map<string, StudentQuizDetail[]>();
 
 export const quizService = {
+  // Synchronous student quiz cache access
+  getCachedStudentEnrolledQuizzes: (courseId?: string): StudentQuizDetail[] | null => {
+    const key = courseId || 'all';
+    return studentEnrolledQuizzesCache.get(key) || null;
+  },
+
+  clearStudentQuizzesCache: (): void => {
+    studentEnrolledQuizzesCache.clear();
+  },
+
   // Synchronous cache access
   getCachedInstructorQuizzes: (courseId?: string): BackendQuiz[] | null => {
     if (courseId && instructorQuizzesCache.has(courseId)) {
@@ -270,6 +281,14 @@ export const quizService = {
     return api.post<BackendQuizQuestion>(`/instructor/quizzes/${quizId}/questions`, payload);
   },
 
+  // Instructor: Batch create questions in a single request
+  createQuestionsBatch: async (
+    quizId: string,
+    questions: CreateQuestionPayload[]
+  ): Promise<ApiResponse<BackendQuizQuestion[]>> => {
+    return api.post<BackendQuizQuestion[]>(`/instructor/quizzes/${quizId}/questions/batch`, { questions });
+  },
+
   // Instructor: Update question
   updateQuestion: async (
     questionId: string,
@@ -304,7 +323,11 @@ export const quizService = {
   // Student: Get enrolled quizzes across courses with live DB states
   getStudentEnrolledQuizzes: async (courseId?: string): Promise<ApiResponse<StudentQuizDetail[]>> => {
     const url = courseId ? `/student/quizzes?courseId=${courseId}` : '/student/quizzes';
-    return api.get<StudentQuizDetail[]>(url);
+    const res = await api.get<StudentQuizDetail[]>(url);
+    if (res.success && Array.isArray(res.data)) {
+      studentEnrolledQuizzesCache.set(courseId || 'all', res.data);
+    }
+    return res;
   },
 
   // Student: Get course quizzes (Student Safe - answer keys hidden)

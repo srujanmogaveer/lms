@@ -23,7 +23,7 @@ export const StudentForum: React.FC = () => {
   // Core Datasets State
   const [discussions, setDiscussions] = useState<StudentForumDiscussion[]>([]);
   const [enrolledCourses, setEnrolledCourses] = useState<CourseOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Active Category Filter State
   const [activeCategory, setActiveCategory] = useState<string>('All Categories');
@@ -48,7 +48,7 @@ export const StudentForum: React.FC = () => {
     let isMounted = true;
     const fetchCourses = async () => {
       try {
-        const res = await enrollmentService.getStudentEnrollments();
+        const res = await enrollmentService.getStudentEnrollments(true);
         if (isMounted && res.success && Array.isArray(res.data) && res.data.length > 0) {
           const list: CourseOption[] = res.data.map((e) => ({
             id: e.courseId,
@@ -97,7 +97,7 @@ export const StudentForum: React.FC = () => {
   }, [activeCategory, filters]);
 
   useEffect(() => {
-    fetchDiscussions(true);
+    fetchDiscussions(false);
   }, [fetchDiscussions]);
 
   // Realtime subscription setup

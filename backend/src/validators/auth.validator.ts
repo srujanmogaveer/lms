@@ -17,11 +17,18 @@ export const instructorRegisterSchema = {
     fullName: z.string().min(2, 'Full Name is required and must be at least 2 characters'),
     email: z.string().email('Please enter a valid email address'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
-    phone: z.string().optional(),
-    avatarUrl: z.string().optional(),
-    qualification: z.string().optional(),
-    experience: z.string().optional(),
-    specialization: z.string().optional(),
+    phone: z
+      .string()
+      .refine((val) => !val || /^\d{10}$/.test(val.trim()), {
+        message: 'Mobile number must be exactly 10 digits',
+      })
+      .nullable()
+      .optional(),
+    avatarUrl: z.string().nullable().optional(),
+    qualification: z.string().nullable().optional(),
+    experience: z.string().nullable().optional(),
+    specialization: z.string().nullable().optional(),
+    category: z.string().nullable().optional(),
     termsAgreed: z.boolean().refine((val) => val === true, {
       message: 'You must agree to the Instructor Terms & Guidelines',
     }),
@@ -51,7 +58,12 @@ export const resetPasswordSchema = {
 export const updateProfileSchema = {
   body: z.object({
     fullName: z.string().min(2, 'Full Name must be at least 2 characters').optional(),
-    phone: z.string().optional(),
+    phone: z
+      .string()
+      .refine((val) => !val || /^\d{10}$/.test(val.trim()), {
+        message: 'Mobile number must be exactly 10 digits',
+      })
+      .optional(),
     bio: z.string().max(2000, 'Bio must be at most 2000 characters').optional(),
     headline: z.string().max(200).optional(),
     avatarUrl: z.string().optional(),

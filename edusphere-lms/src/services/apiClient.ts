@@ -48,7 +48,16 @@ export async function apiClient<T = any>(
   }));
 
   if (!response.ok) {
-    throw new Error(data.message || `Request failed with status ${response.status}`);
+    let errorMsg = data.message || `Request failed with status ${response.status}`;
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      const fieldMsgs = data.errors
+        .map((e: any) => e.message || e.msg || (typeof e === 'string' ? e : ''))
+        .filter(Boolean);
+      if (fieldMsgs.length > 0) {
+        errorMsg = fieldMsgs.join('. ');
+      }
+    }
+    throw new Error(errorMsg);
   }
 
   return data;

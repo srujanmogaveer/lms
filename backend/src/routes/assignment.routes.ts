@@ -36,6 +36,15 @@ router.get(
   (req, res, next) => assignmentController.getInstructorCourseAssignments(req, res, next)
 );
 
+// Upload assignment reference attachment or sample template
+router.post(
+  '/instructor/assignments/upload-attachment',
+  authenticateUser,
+  requireInstructor,
+  resourceUploadMiddleware.single('file'),
+  (req, res, next) => assignmentController.uploadAssignmentAttachment(req, res, next)
+);
+
 // Create assignment for a course
 router.post(
   '/instructor/courses/:courseId/assignments',

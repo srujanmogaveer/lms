@@ -28,8 +28,10 @@ export interface AdminUserProfile {
   instructorApprovalStatus?: 'pending' | 'approved' | 'rejected';
   qualification?: string;
   experience?: string;
+  category?: string;
   specialization?: string;
   coursesCreatedCount?: number;
+  coursesCreated?: any[];
   totalStudents?: number;
   instructorRating?: number;
   adminPermissions?: string[];

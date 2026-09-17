@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 const difficultyEnum = z.enum(['Beginner', 'Intermediate', 'Advanced', 'All Levels']);
 const languageEnum = z.enum(['English', 'Hindi', 'Kannada', 'Tamil', 'Telugu', 'Bengali', 'Marathi']);
-const courseStatusEnum = z.enum(['Draft', 'Published', 'Archived']);
-const approvalStatusEnum = z.enum(['Draft', 'Pending Approval', 'Approved', 'Rejected', 'Archived']);
+const courseStatusEnum = z.enum(['Draft', 'Published', 'Archived', 'All']);
+const approvalStatusEnum = z.enum(['Draft', 'Pending Approval', 'Approved', 'Rejected', 'Archived', 'All']);
 
 export const createCourseSchema = {
   body: z.object({
@@ -67,6 +67,6 @@ export const courseQuerySchema = {
     minRating: z.coerce.number().optional(),
     sortBy: z.enum(['newest', 'oldest', 'alphabetical', 'students', 'rating', 'popular']).optional(),
     page: z.coerce.number().int().positive().optional().default(1),
-    limit: z.coerce.number().int().positive().max(100).optional().default(20),
+    limit: z.coerce.number().int().positive().max(500).optional().default(50),
   }),
 };

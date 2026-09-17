@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -31,6 +31,39 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ isOpen, on
   const effectiveRole = (currentUser as any)?.role || role || 'student';
   const { getNotificationsByRole, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const navigate = useNavigate();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside or escape key
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        // If clicked on the toggle button inside the parent container, let the button handle toggle
+        const parentContainer = panelRef.current.parentElement;
+        if (parentContainer && parentContainer.contains(event.target as Node)) {
+          return;
+        }
+        onClose();
+      }
+    };
+
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    document.addEventListener('keydown', handleEscapeKey);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isOpen, onClose]);
 
   const roleNotifications = getNotificationsByRole(effectiveRole);
 
@@ -97,6 +130,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ isOpen, on
         <>
           <div className="fixed inset-0 z-30" onClick={onClose} />
           <motion.div
+            ref={panelRef}
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}

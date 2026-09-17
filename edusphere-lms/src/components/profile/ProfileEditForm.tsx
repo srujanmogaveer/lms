@@ -194,9 +194,14 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
               <FiPhone className="w-3.5 h-3.5 text-slate-400" /> Phone Number
             </label>
             <input
-              type="text"
-              value={formData.phoneNumber}
-              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              type="tel"
+              maxLength={10}
+              placeholder="9876543210"
+              value={formData.phoneNumber || ''}
+              onChange={(e) => {
+                const numericOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setFormData({ ...formData, phoneNumber: numericOnly });
+              }}
               className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-mono focus:ring-2 focus:ring-brand-500/50 outline-none"
             />
           </div>

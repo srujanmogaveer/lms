@@ -101,7 +101,7 @@ export const StudentPaymentHistory: React.FC = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate('/student/browse-courses')}
+          onClick={() => navigate('/student/browse')}
           className="flex items-center gap-1.5 text-xs w-fit"
         >
           <FiArrowLeft className="w-4 h-4" /> Browse More Courses

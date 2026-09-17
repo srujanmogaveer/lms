@@ -24,22 +24,22 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items }) => {
       return { label, path };
     });
 
-  const activeItems = items || [{ label: 'Home', path: '/' }, ...defaultItems];
+  const activeItems = items || defaultItems;
 
   return (
     <nav aria-label="Breadcrumb" className="py-3 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       <ol className="flex items-center space-x-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
         <li>
           <Link to="/" className="flex items-center hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-            <FiHome className="w-4 h-4 mr-1" />
-            <span className="sr-only">Home</span>
+            <FiHome className="w-3.5 h-3.5 mr-1.5" />
+            <span>Home</span>
           </Link>
         </li>
         {activeItems.map((item, idx) => {
           const isLast = idx === activeItems.length - 1;
           return (
             <li key={idx} className="flex items-center space-x-2">
-              <FiChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <FiChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
               {isLast || !item.path ? (
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{item.label}</span>
               ) : (

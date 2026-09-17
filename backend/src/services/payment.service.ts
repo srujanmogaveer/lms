@@ -671,7 +671,7 @@ export class PaymentService {
         }
       }
       const pendingBalanceINR = Math.max(0, instructorEarningsINR - totalPaidAmountINR);
-      const payoutStatus = pendingBalanceINR === 0 && instructorEarningsINR > 0 ? 'Paid' : 'Pending';
+      const payoutStatus = pendingBalanceINR > 0 ? 'Pending' : (totalPaidAmountINR > 0 ? 'Paid' : 'No Dues');
 
       return {
         instructorId: ins.instructorId,

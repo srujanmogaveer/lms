@@ -1,5 +1,5 @@
 export type PaymentStatusType = 'Paid' | 'Failed' | 'Cancelled';
-export type PayoutStatusType = 'Pending' | 'Paid';
+export type PayoutStatusType = 'Pending' | 'Settled' | 'No Dues' | 'Processing';
 export type PaymentMethodType = 'UPI (GPay / PhonePe)' | 'Razorpay' | 'NetBanking' | 'Credit Card' | 'Debit Card';
 export type PayoutMethodType = 'Bank Account' | 'UPI ID';
 

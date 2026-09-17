@@ -20,6 +20,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { CourseCard } from '../../components/cards/CourseCard';
 import { CourseReviewsSection } from '../../components/reviews/CourseReviewsSection';
+import { PromotionalVideoModal } from '../../components/common/PromotionalVideoModal';
 import { courseService } from '../../services/courseService';
 import { curriculumService } from '../../services/curriculumService';
 import { mockCourses } from '../../data/dummyData';
@@ -28,6 +29,7 @@ export const CourseDetails: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [openModuleIdx, setOpenModuleIdx] = useState<number | null>(0);
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState<boolean>(false);
 
   // Scroll to top when course slug changes
   useEffect(() => {
@@ -141,8 +143,9 @@ export const CourseDetails: React.FC = () => {
     return defaultModules;
   }, [apiCurriculum]);
 
-  const learningOutcomes = course.learningOutcomes && course.learningOutcomes.length > 0 
-    ? course.learningOutcomes 
+  const rawCourse = course as any;
+  const learningOutcomes: string[] = rawCourse?.learningOutcomes && rawCourse.learningOutcomes.length > 0 
+    ? rawCourse.learningOutcomes 
     : [
       'Build production-ready web applications using modern React & TypeScript.',
       'Implement accessible UI components adhering to WCAG AA guidelines.',
@@ -150,8 +153,8 @@ export const CourseDetails: React.FC = () => {
       'Master state management, custom hooks, and performance optimization.',
     ];
 
-  const courseRequirements = course.requirements && course.requirements.length > 0
-    ? course.requirements
+  const courseRequirements: string[] = rawCourse?.requirements && rawCourse.requirements.length > 0
+    ? rawCourse.requirements
     : [
       'Basic understanding of HTML, CSS, and JS',
       'Node.js installed on your computer',
@@ -165,10 +168,14 @@ export const CourseDetails: React.FC = () => {
   ];
 
   const handlePreviewClick = () => {
-    const el = document.getElementById('curriculum-section');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-      setOpenModuleIdx(0);
+    if (course.promoVideoUrl) {
+      setIsPromoModalOpen(true);
+    } else {
+      const el = document.getElementById('curriculum-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        setOpenModuleIdx(0);
+      }
     }
   };
 
@@ -334,14 +341,34 @@ export const CourseDetails: React.FC = () => {
           {/* Sticky Pricing Sidebar Card (Right Column) */}
           <div className="lg:col-span-1 lg:sticky lg:top-20 space-y-6">
             <Card className="p-6 space-y-6 shadow-xl border-brand-100 dark:border-brand-900">
-              <img 
-                src={course.thumbnail || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800'} 
-                alt={course.title} 
-                className="w-full h-44 object-cover rounded-lg"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800';
+              {/* Course Thumbnail with Video Preview Play Overlay (Only shown if promo video is present) */}
+              <div 
+                className={`relative w-full h-44 rounded-xl overflow-hidden group ${course.promoVideoUrl ? 'cursor-pointer' : ''}`}
+                onClick={() => {
+                  if (course.promoVideoUrl) {
+                    setIsPromoModalOpen(true);
+                  }
                 }}
-              />
+              >
+                <img 
+                  src={course.thumbnail || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800'} 
+                  alt={course.title} 
+                  className={`w-full h-full object-cover transition-transform duration-300 ${course.promoVideoUrl ? 'group-hover:scale-105' : ''}`}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800';
+                  }}
+                />
+                {Boolean(course.promoVideoUrl?.trim()) && (
+                  <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-85 group-hover:opacity-100 transition-opacity">
+                    <div className="w-12 h-12 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                      <FiPlayCircle className="w-7 h-7" />
+                    </div>
+                    <span className="mt-2 text-[11px] font-bold text-white tracking-wide bg-black/60 px-2.5 py-0.5 rounded-full">
+                      Watch Course Preview
+                    </span>
+                  </div>
+                )}
+              </div>
               
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">
@@ -359,8 +386,9 @@ export const CourseDetails: React.FC = () => {
                     Sign In to Enroll
                   </Button>
                 </Link>
-                <Button variant="outline" className="w-full" onClick={handlePreviewClick}>
-                  Preview Course
+                <Button variant="outline" className="w-full flex items-center justify-center gap-2" onClick={handlePreviewClick}>
+                  <FiPlayCircle className="w-4 h-4 text-brand-600" />
+                  <span>Preview Course Trailer</span>
                 </Button>
               </div>
 
@@ -386,6 +414,14 @@ export const CourseDetails: React.FC = () => {
           ))}
         </div>
       </section>
+
+      {/* Promotional Video Lightbox Modal */}
+      <PromotionalVideoModal
+        isOpen={isPromoModalOpen}
+        onClose={() => setIsPromoModalOpen(false)}
+        videoUrl={course.promoVideoUrl}
+        courseTitle={course.title}
+      />
 
     </div>
   );

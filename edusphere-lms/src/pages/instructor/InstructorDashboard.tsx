@@ -1,10 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { SkeletonLoader } from '../../components/loaders/Loaders';
 import { BaseModal } from '../../components/dashboard/DashboardModals';
 import { Button } from '../../components/ui/Button';
-import { isPlaceholderAvatar } from '../../components/common/Avatar';
 
 // Sub-components
 import { InstructorDashboardHeader } from '../../components/instructor/InstructorDashboardHeader';
@@ -18,6 +17,7 @@ import { InstructorRevenueSummary } from '../../components/instructor/Instructor
 import { InstructorAnnouncementsWidget } from '../../components/instructor/InstructorAnnouncementsWidget';
 import { InstructorCalendarWidget } from '../../components/instructor/InstructorCalendarWidget';
 import { InstructorNotificationsWidget } from '../../components/instructor/InstructorNotificationsWidget';
+import { ProfileCompletionCard } from '../../components/instructor/ProfileCompletionCard';
 
 // Interactive Modals
 import {
@@ -42,30 +42,8 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export const InstructorDashboard: React.FC = () => {
   const queryClient = useQueryClient();
-  const { currentUser, rawProfile } = useAuth();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
-
-  // Profile completion status check (dynamically evaluates real database profile)
-  const isProfileCompleted = useMemo(() => {
-    if (localStorage.getItem('edusphere_instructor_profile_completed') === 'true') {
-      return true;
-    }
-    const avatarUrl = currentUser?.avatar || rawProfile?.avatarUrl;
-    const hasPhoto = Boolean(avatarUrl && !isPlaceholderAvatar(avatarUrl));
-    const hasPhone = Boolean(rawProfile?.phone?.trim());
-    const hasQualification = Boolean(rawProfile?.qualification?.trim());
-    const hasSpecialization = Boolean(rawProfile?.specialization?.trim());
-    const hasBio = Boolean(rawProfile?.bio && rawProfile.bio.trim().length > 10);
-    const hasPayout = Boolean(
-      rawProfile?.payoutInfo &&
-      (rawProfile.payoutInfo.selectedMethod === 'Bank Account' ||
-       rawProfile.payoutInfo.selectedMethod === 'UPI ID' ||
-       rawProfile.payoutInfo.bankDetails?.accountNumber ||
-       rawProfile.payoutInfo.upiDetails?.upiId)
-    );
-
-    return hasPhoto && hasPhone && hasQualification && hasSpecialization && hasBio && hasPayout;
-  }, [currentUser, rawProfile]);
 
   // Modal State Control
   const [reviewAssignmentTarget, setReviewAssignmentTarget] = useState<PendingAssignmentReview | null>(null);
@@ -175,22 +153,11 @@ export const InstructorDashboard: React.FC = () => {
         onCreateCourse={() => navigate('/instructor/courses?action=create')}
       />
 
-      {/* Complete Your Profile Reminder */}
-      {!isProfileCompleted && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-            Complete Your Profile
-          </span>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => navigate('/instructor/profile')}
-            className="bg-brand-600 hover:bg-brand-700 text-white font-bold shrink-0 text-xs"
-          >
-            Complete Profile
-          </Button>
-        </div>
-      )}
+      {/* Complete Your Profile Interactive Component */}
+      <ProfileCompletionCard
+        onNavigateToProfile={() => navigate('/instructor/profile')}
+        onCreateCourse={() => navigate('/instructor/courses?action=create')}
+      />
 
       {/* Skeleton Loading State View */}
       {isLoading ? (

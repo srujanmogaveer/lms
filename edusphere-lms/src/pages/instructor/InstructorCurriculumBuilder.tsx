@@ -22,7 +22,7 @@ import {
   FiAlertTriangle,
   FiX,
   FiMove,
-  FiRefreshCw
+  FiLoader
 } from 'react-icons/fi';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -36,6 +36,12 @@ import { curriculumService } from '../../services/curriculumService';
 import type { BackendModule } from '../../services/curriculumService';
 import { courseService } from '../../services/courseService';
 
+import {
+  showWarningAlert,
+  showErrorAlert,
+  showConfirmAlert,
+  showToastAlert,
+} from '../../utils/swalAlerts';
 import { CourseProgressTracker } from '../../components/instructor/CourseProgressTracker';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
@@ -96,21 +102,6 @@ export const InstructorCurriculumBuilder: React.FC = () => {
     moduleId: string;
     editingLesson: CurriculumLesson | null;
   }>({ isOpen: false, moduleId: '', editingLesson: null });
-
-  const [deletingTarget, setDeletingTarget] = useState<{
-    type: 'module' | 'lesson';
-    moduleId: string;
-    lessonId?: string;
-    title: string;
-  } | null>(null);
-
-  // Toast notification
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'info' | 'warning' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
-  };
 
   // Form inputs for Module modal
   const [moduleForm, setModuleForm] = useState({ title: '', description: '' });
@@ -269,11 +260,11 @@ export const InstructorCurriculumBuilder: React.FC = () => {
   // Module Actions
   const openAddModuleModal = () => {
     if (isPublishedCourse) {
-      showToast('Curriculum is locked for published courses to protect active students and certificates.', 'warning');
+      showWarningAlert('Curriculum Locked', 'Curriculum is locked for published courses to protect active students and certificates.');
       return;
     }
     if (!selectedCourseId) {
-      showToast('Please select or create a course first before adding modules.', 'warning');
+      showWarningAlert('No Course Selected', 'Please select or create a course first before adding modules.');
       return;
     }
     setModuleForm({ title: '', description: '' });
@@ -282,7 +273,7 @@ export const InstructorCurriculumBuilder: React.FC = () => {
 
   const openEditModuleModal = (module: CurriculumModule) => {
     if (isPublishedCourse) {
-      showToast('Curriculum is locked for published courses.', 'warning');
+      showWarningAlert('Curriculum Locked', 'Curriculum is locked for published courses.');
       return;
     }
     setModuleForm({ title: module.title, description: module.description });
@@ -291,16 +282,16 @@ export const InstructorCurriculumBuilder: React.FC = () => {
 
   const handleSaveModule = async () => {
     if (isPublishedCourse) {
-      showToast('Published courses cannot be modified.', 'warning');
+      showWarningAlert('Curriculum Locked', 'Published courses cannot be modified.');
       return;
     }
     if (!selectedCourseId) {
-      showToast('No active course selected. Please select a valid course first.', 'warning');
+      showWarningAlert('No Course Selected', 'No active course selected. Please select a valid course first.');
       return;
     }
 
     if (!moduleForm.title.trim()) {
-      showToast('Module title is required.', 'warning');
+      showWarningAlert('Validation Error', 'Module title is required.');
       return;
     }
 
@@ -311,26 +302,26 @@ export const InstructorCurriculumBuilder: React.FC = () => {
           title: moduleForm.title.trim(),
           description: moduleForm.description.trim(),
         });
-        showToast(`Module "${moduleForm.title}" updated.`);
+        showToastAlert(`Module "${moduleForm.title}" updated.`, 'success');
       } else {
         // Create module via backend API
         await curriculumService.createModule(selectedCourseId, {
           title: moduleForm.title.trim(),
           description: moduleForm.description.trim(),
         });
-        showToast(`Module "${moduleForm.title}" added to curriculum.`);
+        showToastAlert(`Module "${moduleForm.title}" added to curriculum.`, 'success');
       }
 
       await loadCurriculum();
       setModuleModalState({ isOpen: false, editingModule: null });
     } catch (err: any) {
-      showToast(err.message || 'Failed to save module.', 'warning');
+      showErrorAlert('Error', err.message || 'Failed to save module.');
     }
   };
 
   const handleMoveModule = async (index: number, direction: 'up' | 'down') => {
     if (isPublishedCourse) {
-      showToast('Curriculum order is locked for published courses.', 'warning');
+      showWarningAlert('Curriculum Locked', 'Curriculum order is locked for published courses.');
       return;
     }
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -349,9 +340,9 @@ export const InstructorCurriculumBuilder: React.FC = () => {
 
     try {
       await curriculumService.reorderModules(selectedCourseId, reorderedItems);
-      showToast('Reordered modules.', 'info');
+      showToastAlert('Reordered modules.', 'info');
     } catch (err: any) {
-      showToast(err.message || 'Failed to reorder modules', 'warning');
+      showErrorAlert('Reorder Failed', err.message || 'Failed to reorder modules.');
       loadCurriculum();
     }
   };
@@ -359,10 +350,9 @@ export const InstructorCurriculumBuilder: React.FC = () => {
   // Lesson Actions
   const openAddLessonModal = (moduleId: string) => {
     if (isPublishedCourse) {
-      showToast('Curriculum is locked for published courses.', 'warning');
+      showWarningAlert('Curriculum Locked', 'Curriculum is locked for published courses.');
       return;
     }
-    // Completely reset the lesson form state for video isolation
     setLessonForm({
       title: '',
       shortDescription: '',
@@ -376,7 +366,7 @@ export const InstructorCurriculumBuilder: React.FC = () => {
 
   const openEditLessonModal = (moduleId: string, lesson: CurriculumLesson) => {
     if (isPublishedCourse) {
-      showToast('Curriculum is locked for published courses.', 'warning');
+      showWarningAlert('Curriculum Locked', 'Curriculum is locked for published courses.');
       return;
     }
     setLessonForm({
@@ -390,10 +380,9 @@ export const InstructorCurriculumBuilder: React.FC = () => {
     setLessonModalState({ isOpen: true, moduleId, editingLesson: lesson });
   };
 
-
   const handleSaveLesson = async () => {
     if (!lessonForm.title.trim()) {
-      showToast('Lesson title is required.', 'warning');
+      showWarningAlert('Validation Error', 'Lesson title is required.');
       return;
     }
 
@@ -407,7 +396,7 @@ export const InstructorCurriculumBuilder: React.FC = () => {
           lessonType: lessonForm.type,
           isPreview: !lessonForm.isLocked,
         });
-        showToast(`Lesson "${lessonForm.title}" saved.`);
+        showToastAlert(`Lesson "${lessonForm.title}" saved.`, 'success');
       } else {
         // Create new lesson
         await curriculumService.createLesson(lessonModalState.moduleId, {
@@ -417,13 +406,13 @@ export const InstructorCurriculumBuilder: React.FC = () => {
           lessonType: lessonForm.type,
           isPreview: !lessonForm.isLocked,
         });
-        showToast(`New lesson "${lessonForm.title}" created.`);
+        showToastAlert(`New lesson "${lessonForm.title}" created.`, 'success');
       }
 
       await loadCurriculum();
       setLessonModalState({ isOpen: false, moduleId: '', editingLesson: null });
     } catch (err: any) {
-      showToast(err.message || 'Failed to save lesson.', 'warning');
+      showErrorAlert('Error', err.message || 'Failed to save lesson.');
     }
   };
 
@@ -439,10 +428,10 @@ export const InstructorCurriculumBuilder: React.FC = () => {
         content: lesson.textContent,
         resourceUrl: lesson.resourceUrl,
       });
-      showToast(`Lesson duplicated: "${lesson.title} (Copy)"`);
+      showToastAlert(`Lesson duplicated: "${lesson.title} (Copy)"`, 'success');
       await loadCurriculum();
     } catch (err: any) {
-      showToast(err.message || 'Failed to duplicate lesson', 'warning');
+      showErrorAlert('Error', err.message || 'Failed to duplicate lesson.');
     }
   };
 
@@ -469,29 +458,48 @@ export const InstructorCurriculumBuilder: React.FC = () => {
 
     try {
       await curriculumService.reorderLessons(moduleId, reorderedItems);
-      showToast('Lesson reordered.', 'info');
+      showToastAlert('Lesson reordered.', 'info');
     } catch (err: any) {
-      showToast(err.message || 'Failed to reorder lessons', 'warning');
+      showErrorAlert('Reorder Failed', err.message || 'Failed to reorder lessons.');
       loadCurriculum();
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deletingTarget) return;
+  const handleDeleteModule = async (moduleId: string, title: string) => {
+    const confirmed = await showConfirmAlert(
+      'Delete Module?',
+      `Are you sure you want to delete "${title}" and all its lessons? This action cannot be undone.`,
+      'Yes, Delete',
+      'Cancel',
+      'warning'
+    );
+    if (!confirmed) return;
 
     try {
-      if (deletingTarget.type === 'module') {
-        await curriculumService.deleteModule(deletingTarget.moduleId);
-        showToast(`Module "${deletingTarget.title}" deleted.`, 'warning');
-      } else if (deletingTarget.type === 'lesson' && deletingTarget.lessonId) {
-        await curriculumService.deleteLesson(deletingTarget.lessonId);
-        showToast(`Lesson "${deletingTarget.title}" deleted.`, 'warning');
-      }
+      await curriculumService.deleteModule(moduleId);
+      showToastAlert(`Module "${title}" deleted.`, 'success');
       await loadCurriculum();
     } catch (err: any) {
-      showToast(err.message || 'Failed to delete target', 'warning');
-    } finally {
-      setDeletingTarget(null);
+      showErrorAlert('Delete Failed', err.message || 'Failed to delete module.');
+    }
+  };
+
+  const handleDeleteLesson = async (lessonId: string, title: string) => {
+    const confirmed = await showConfirmAlert(
+      'Delete Lesson?',
+      `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+      'Yes, Delete',
+      'Cancel',
+      'warning'
+    );
+    if (!confirmed) return;
+
+    try {
+      await curriculumService.deleteLesson(lessonId);
+      showToastAlert(`Lesson "${title}" deleted.`, 'success');
+      await loadCurriculum();
+    } catch (err: any) {
+      showErrorAlert('Delete Failed', err.message || 'Failed to delete lesson.');
     }
   };
 
@@ -510,35 +518,36 @@ export const InstructorCurriculumBuilder: React.FC = () => {
     }
   };
 
+  const handleSaveAndContinue = () => {
+    if (!selectedCourseId) {
+      showWarningAlert('Course Required', 'Please select a course first before proceeding.');
+      return;
+    }
+
+    if (!modules || modules.length === 0) {
+      showWarningAlert('Curriculum Required', 'Please create at least 1 module before proceeding to Content Management.');
+      return;
+    }
+
+    const emptyModule = modules.find((m) => !m.lessons || m.lessons.length === 0);
+    if (emptyModule) {
+      showWarningAlert(
+        'Empty Module Found',
+        `Module "${emptyModule.title}" has no lessons. Each module must contain at least 1 lesson before proceeding.`
+      );
+      return;
+    }
+
+    showToastAlert('Curriculum verified! Proceeding to Step 3: Content Management...', 'success');
+    setTimeout(() => {
+      navigate(`/instructor/content?courseId=${selectedCourseId}`);
+    }, 400);
+  };
+
   return (
     <div className="space-y-6 pb-16">
       {/* Step 2 Progress Tracker */}
       <CourseProgressTracker currentStep={2} courseId={selectedCourseId} completedSteps={[1]} />
-
-      {/* Toast Notification Banner */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-20 right-6 z-50 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl border flex items-center gap-2 ${
-              toast.type === 'success'
-                ? 'bg-emerald-900 border-emerald-500'
-                : toast.type === 'warning'
-                ? 'bg-amber-900 border-amber-500'
-                : 'bg-slate-900 border-brand-500'
-            }`}
-          >
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                toast.type === 'success' ? 'bg-emerald-400' : toast.type === 'warning' ? 'bg-amber-400' : 'bg-brand-400'
-              }`}
-            />
-            {toast.message}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Top Header / Workflow Action Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -565,16 +574,6 @@ export const InstructorCurriculumBuilder: React.FC = () => {
           <Button
             variant="outline"
             size="md"
-            onClick={loadCurriculum}
-            title="Refresh Curriculum"
-            className="text-xs"
-          >
-            <FiRefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
-          </Button>
-
-          <Button
-            variant="outline"
-            size="md"
             onClick={() => setIsPreviewOpen(!isPreviewOpen)}
           >
             <FiEye className="w-4 h-4 mr-2" /> {isPreviewOpen ? 'Edit Curriculum' : 'Preview Curriculum'}
@@ -583,9 +582,7 @@ export const InstructorCurriculumBuilder: React.FC = () => {
           <Button
             variant="primary"
             size="md"
-            onClick={() => {
-              navigate(`/instructor/content?courseId=${selectedCourseId}`);
-            }}
+            onClick={handleSaveAndContinue}
           >
             <FiSend className="w-4 h-4 mr-2" /> Save & Continue
           </Button>
@@ -740,7 +737,7 @@ export const InstructorCurriculumBuilder: React.FC = () => {
         <div className="space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-1.5 custom-scrollbar">
           {isLoading ? (
             <Card className="p-12 text-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-3xl">
-              <FiRefreshCw className="w-8 h-8 text-brand-500 animate-spin mx-auto mb-3" />
+              <FiLoader className="w-8 h-8 text-brand-500 animate-spin mx-auto mb-3" />
               <p className="text-xs text-slate-500">Loading course curriculum...</p>
             </Card>
           ) : modules.length === 0 ? (
@@ -847,13 +844,7 @@ export const InstructorCurriculumBuilder: React.FC = () => {
                         </button>
 
                         <button
-                          onClick={() =>
-                            setDeletingTarget({
-                              type: 'module',
-                              moduleId: mod.id,
-                              title: mod.title,
-                            })
-                          }
+                          onClick={() => handleDeleteModule(mod.id, mod.title)}
                           className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950"
                           title="Delete Module"
                         >
@@ -974,14 +965,7 @@ export const InstructorCurriculumBuilder: React.FC = () => {
                                   </button>
 
                                   <button
-                                    onClick={() =>
-                                      setDeletingTarget({
-                                        type: 'lesson',
-                                        moduleId: mod.id,
-                                        lessonId: les.id,
-                                        title: les.title,
-                                      })
-                                    }
+                                    onClick={() => handleDeleteLesson(les.id, les.title)}
                                     className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950"
                                     title="Delete Lesson"
                                   >
@@ -1065,6 +1049,29 @@ export const InstructorCurriculumBuilder: React.FC = () => {
           </div>
         </Card>
       )}
+
+      {/* Bottom Step Navigation Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+        <Button
+          variant="outline"
+          size="md"
+          onClick={() => navigate(`/instructor/courses?courseId=${selectedCourseId}`)}
+          className="w-full sm:w-auto"
+        >
+          <FiArrowLeft className="w-4 h-4 mr-2" /> Back to Step 1: Course Details
+        </Button>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSaveAndContinue}
+            className="w-full sm:w-auto font-bold"
+          >
+            <FiSend className="w-4 h-4 mr-2" /> Save & Continue to Step 3 →
+          </Button>
+        </div>
+      </div>
 
       {/* ======================================================== */}
       {/* MODAL: Add / Edit Module */}
@@ -1210,10 +1217,27 @@ export const InstructorCurriculumBuilder: React.FC = () => {
                       <input
                         type="number"
                         min={1}
+                        max={600}
                         placeholder="15"
-                        value={lessonForm.durationMinutes || ''}
-                        onChange={(e) => setLessonForm({ ...lessonForm, durationMinutes: Math.max(1, Number(e.target.value)) })}
-                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:outline-none"
+                        value={lessonForm.durationMinutes === 0 ? '' : (lessonForm.durationMinutes || '')}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setLessonForm({ ...lessonForm, durationMinutes: '' as any });
+                          } else {
+                            const parsed = parseInt(val, 10);
+                            if (!isNaN(parsed) && parsed >= 0) {
+                              setLessonForm({ ...lessonForm, durationMinutes: parsed });
+                            }
+                          }
+                        }}
+                        onBlur={() => {
+                          if (!lessonForm.durationMinutes || Number(lessonForm.durationMinutes) < 1) {
+                            setLessonForm((prev) => ({ ...prev, durationMinutes: 15 }));
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
                     </div>
                   </div>
@@ -1296,39 +1320,6 @@ export const InstructorCurriculumBuilder: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* ======================================================== */}
-      {/* MODAL: Confirm Delete Modal */}
-      {/* ======================================================== */}
-      <AnimatePresence>
-        {deletingTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl text-center space-y-4"
-            >
-              <div className="w-14 h-14 bg-rose-100 dark:bg-rose-950 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                <FiTrash2 className="w-7 h-7" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Delete {deletingTarget.type === 'module' ? 'Module' : 'Lesson'}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Are you sure you want to delete <strong className="text-slate-800 dark:text-slate-200">"{deletingTarget.title}"</strong>? This will permanently remove it from the curriculum hierarchy.
-              </p>
-              <div className="flex items-center justify-center gap-3 pt-2">
-                <Button variant="outline" size="md" onClick={() => setDeletingTarget(null)}>
-                  Cancel
-                </Button>
-                <Button variant="danger" size="md" onClick={handleConfirmDelete}>
-                  Yes, Delete
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

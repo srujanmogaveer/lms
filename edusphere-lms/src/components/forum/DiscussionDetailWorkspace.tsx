@@ -4,11 +4,9 @@ import {
   FiThumbsUp,
   FiMessageSquare,
   FiCheckCircle,
-  FiBookmark,
   FiPaperclip,
   FiSend,
   FiDownload,
-  FiShare2,
   FiFlag,
   FiBold,
   FiItalic,
@@ -55,7 +53,6 @@ export const DiscussionDetailWorkspace: React.FC<DiscussionDetailWorkspaceProps>
 }) => {
   const [newReplyContent, setNewReplyContent] = useState('');
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
 
   // Edit reply state
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
@@ -188,57 +185,9 @@ export const DiscussionDetailWorkspace: React.FC<DiscussionDetailWorkspaceProps>
                 <FiCheckCircle className="w-3.5 h-3.5" />
                 <span>{isSolved ? 'Mark Open' : 'Mark Solved'}</span>
               </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onModerateDiscussion(id, { isLocked: !isLocked })}
-                className={`flex items-center gap-1.5 text-xs ${
-                  isLocked ? 'bg-rose-50 dark:bg-rose-950 text-rose-600 border-rose-300' : ''
-                }`}
-              >
-                <FiLock className="w-3.5 h-3.5" />
-                <span>{isLocked ? 'Unlock Thread' : 'Lock Thread'}</span>
-              </Button>
             </>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsBookmarked(!isBookmarked)}
-            className={`flex items-center gap-1.5 ${
-              isBookmarked ? 'bg-amber-50 dark:bg-amber-950 border-amber-300 text-amber-600' : ''
-            }`}
-          >
-            <FiBookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-amber-500 text-amber-500' : ''}`} />
-            <span>{isBookmarked ? 'Saved' : 'Save Thread'}</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (navigator.clipboard) {
-                navigator.clipboard.writeText(window.location.href);
-              }
-              alert(`Discussion link copied to clipboard!`);
-            }}
-            className="flex items-center gap-1.5"
-          >
-            <FiShare2 className="w-3.5 h-3.5" />
-            <span>Share</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenReport('discussion', id)}
-            className="flex items-center gap-1 text-slate-400 hover:text-rose-500"
-            title="Report Discussion"
-          >
-            <FiFlag className="w-3.5 h-3.5" />
-          </Button>
         </div>
       </div>
 

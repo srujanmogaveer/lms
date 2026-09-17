@@ -24,9 +24,11 @@ import { enrollmentService } from '../../services/enrollmentService';
 import { useWishlistCart } from '../../contexts/WishlistCartContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { loadRazorpayScript } from '../../utils/razorpayLoader';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Course, CartItem } from '../../types';
 
 export const StudentCheckout: React.FC = () => {
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -121,9 +123,24 @@ export const StudentCheckout: React.FC = () => {
 
       const orderData = orderRes.data;
 
+      // Helper to clear frontend caches and immediately refresh queries across the app
+      const handlePostPaymentSync = async () => {
+        enrollmentService.clearCache();
+        await Promise.allSettled([
+          refreshCart(),
+          enrollmentService.getStudentEnrollments(true),
+          queryClient.invalidateQueries({ queryKey: ['student-my-courses'] }),
+          queryClient.invalidateQueries({ queryKey: ['student-dashboard'] }),
+          queryClient.invalidateQueries({ queryKey: ['student-enrollments-detail'] }),
+          queryClient.invalidateQueries({ queryKey: ['course-details'] }),
+          queryClient.invalidateQueries({ queryKey: ['course-curriculum'] }),
+          queryClient.invalidateQueries({ queryKey: ['course-progress-detail'] }),
+        ]);
+      };
+
       // Handle direct free course enrollment
       if (orderData.isFreeOrder || orderData.amount === 0) {
-        await refreshCart();
+        await handlePostPaymentSync();
         setCompletedOrderNumber(orderData.orderNumber);
         setCheckoutStatus('success');
         showSuccessAlert('Enrolled Successfully!', 'You have been enrolled in the selected free course.');
@@ -147,7 +164,7 @@ export const StudentCheckout: React.FC = () => {
         });
 
         if (verifyRes.success) {
-          await refreshCart();
+          await handlePostPaymentSync();
           setCompletedOrderNumber(orderData.orderNumber);
           setCheckoutStatus('success');
           showSuccessAlert(
@@ -200,7 +217,7 @@ export const StudentCheckout: React.FC = () => {
             }
 
             if (verifyRes.success) {
-              await refreshCart();
+              await handlePostPaymentSync();
               setCompletedOrderNumber(orderData.orderNumber);
               setCheckoutStatus('success');
               showSuccessAlert(

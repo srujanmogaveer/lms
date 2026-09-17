@@ -411,10 +411,29 @@ export const AdminCourseApproval: React.FC = () => {
                   </div>
 
                   {/* Course Info */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                      <span>{course.category}</span>
-                      <span>₹{course.price}</span>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                      <span className="truncate">{course.category}</span>
+                      <div className="shrink-0 flex items-center">
+                        {course.price === 0 || course.priceType === 'Free' ? (
+                          <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold rounded-md text-[10px]">
+                            FREE
+                          </span>
+                        ) : course.discountPrice && course.discountPrice > 0 && course.discountPrice < course.price ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-xs">
+                              ₹{course.discountPrice.toLocaleString('en-IN')}
+                            </span>
+                            <span className="text-[10px] text-slate-400 line-through font-medium">
+                              ₹{course.price.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-900 dark:text-slate-100 font-extrabold text-xs">
+                            ₹{course.price ? course.price.toLocaleString('en-IN') : '0'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 line-clamp-2">
                       {course.title}
@@ -427,7 +446,17 @@ export const AdminCourseApproval: React.FC = () => {
 
                 {/* Footer Controls */}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
-                  <span className="text-[11px] text-slate-400">Created: {course.createdAt}</span>
+                  <span className="text-[11px] text-slate-400">
+                    Created: {(() => {
+                      if (!course.createdAt) return 'Recently';
+                      try {
+                        const d = new Date(course.createdAt);
+                        return isNaN(d.getTime()) ? course.createdAt : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                      } catch {
+                        return course.createdAt;
+                      }
+                    })()}
+                  </span>
                   <div className="flex items-center gap-1.5">
                     <Button
                       size="sm"

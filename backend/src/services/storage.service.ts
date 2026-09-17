@@ -193,28 +193,33 @@ export class StorageService {
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const filePath = `${folder}/avatar-${uniqueId}.${extension}`;
 
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from(AVATARS_BUCKET)
-      .upload(filePath, file.buffer, {
-        contentType: file.mimetype || 'image/png',
-        cacheControl: '31536000, immutable',
-        upsert: true,
-      });
+    try {
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(AVATARS_BUCKET)
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype || 'image/png',
+          cacheControl: '31536000, immutable',
+          upsert: true,
+        });
 
-    if (uploadError) {
-      logger.error('Supabase Storage avatar upload error:', uploadError);
-      throw ApiError.badRequest(`Failed to upload avatar image: ${uploadError.message}`);
+      if (!uploadError) {
+        const { data: publicUrlData } = supabaseAdmin.storage
+          .from(AVATARS_BUCKET)
+          .getPublicUrl(filePath);
+
+        if (publicUrlData?.publicUrl) {
+          return publicUrlData.publicUrl;
+        }
+      }
+      logger.warn('Supabase storage upload failed for avatar, falling back to data URL:', uploadError);
+    } catch (storageErr) {
+      logger.error('Supabase Storage avatar upload error:', storageErr);
     }
 
-    const { data: publicUrlData } = supabaseAdmin.storage
-      .from(AVATARS_BUCKET)
-      .getPublicUrl(filePath);
-
-    if (!publicUrlData?.publicUrl) {
-      throw ApiError.internal('Failed to generate public URL for uploaded avatar');
-    }
-
-    return publicUrlData.publicUrl;
+    // Fallback: Return Base64 Data URL so the user profile image is never lost
+    logger.info('Using Base64 Data URL fallback for avatar upload');
+    const base64Data = file.buffer.toString('base64');
+    return `data:${file.mimetype || 'image/png'};base64,${base64Data}`;
   }
 
   /**
@@ -504,6 +509,84 @@ export class StorageService {
       url: publicUrlData.publicUrl,
       fileName: file.originalname,
       fileSize: file.size,
+      fileType: extension.toUpperCase(),
+    };
+  }
+
+  /**
+   * Upload instructor assignment reference attachment or sample template
+   * (bucket: lesson-resources or chat-attachments)
+   */
+  public static async uploadAssignmentAttachment(
+    file: Express.Multer.File,
+    instructorId: string,
+    courseId?: string
+  ): Promise<{ url: string; fileName: string; fileSize: number; formattedSize: string; fileType: string }> {
+    await this.ensureCurriculumBuckets();
+
+    if (!file || !file.buffer || file.size === 0) {
+      throw ApiError.badRequest('Uploaded assignment attachment is empty or missing');
+    }
+
+    const MAX_SIZE = 15 * 1024 * 1024; // 15 MB
+    if (file.size > MAX_SIZE) {
+      throw ApiError.badRequest('File size exceeds the 15 MB limit for assignment attachments');
+    }
+
+    const cleanInstructorId = instructorId || 'instructor';
+    const cleanCourseId = courseId || 'general';
+    const sanitizedOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const extension = file.originalname.split('.').pop()?.toLowerCase() || 'file';
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const filePath = `assignment-attachments/${cleanCourseId}/${cleanInstructorId}/${uniqueId}-${sanitizedOriginalName}`;
+
+    // Format readable size
+    const formattedSize =
+      file.size >= 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+    // Try uploading to lesson-resources first
+    let publicUrl = '';
+    const { error: uploadErr } = await supabaseAdmin.storage
+      .from(LESSON_RESOURCES_BUCKET)
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype || 'application/octet-stream',
+        cacheControl: '31536000, immutable',
+        upsert: true,
+      });
+
+    if (!uploadErr) {
+      const { data } = supabaseAdmin.storage.from(LESSON_RESOURCES_BUCKET).getPublicUrl(filePath);
+      publicUrl = data?.publicUrl || '';
+    } else {
+      // Fallback to chat-attachments bucket which is public
+      const { error: fbErr } = await supabaseAdmin.storage
+        .from(CHAT_ATTACHMENTS_BUCKET)
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype || 'application/octet-stream',
+          cacheControl: '31536000, immutable',
+          upsert: true,
+        });
+
+      if (fbErr) {
+        logger.error('Failed to upload assignment attachment to both buckets:', fbErr);
+        throw ApiError.badRequest(`Failed to upload attachment: ${fbErr.message}`);
+      }
+
+      const { data } = supabaseAdmin.storage.from(CHAT_ATTACHMENTS_BUCKET).getPublicUrl(filePath);
+      publicUrl = data?.publicUrl || '';
+    }
+
+    if (!publicUrl) {
+      throw ApiError.internal('Failed to generate URL for uploaded attachment');
+    }
+
+    return {
+      url: publicUrl,
+      fileName: file.originalname,
+      fileSize: file.size,
+      formattedSize,
       fileType: extension.toUpperCase(),
     };
   }

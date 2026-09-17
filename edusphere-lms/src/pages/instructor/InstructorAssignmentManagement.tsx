@@ -19,6 +19,8 @@ import {
   FiCheck,
   FiHelpCircle,
   FiAlertCircle,
+  FiPaperclip,
+  FiUploadCloud,
 } from 'react-icons/fi';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -36,6 +38,7 @@ import {
 
 import { courseService } from '../../services/courseService';
 import { assignmentService } from '../../services/assignmentService';
+import { uploadAssignmentAttachment } from '../../services/storageService';
 
 import { CourseProgressTracker } from '../../components/instructor/CourseProgressTracker';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -116,6 +119,9 @@ export const InstructorAssignmentManagement: React.FC = () => {
         maxSubmissionAttempts: 3,
         assignmentType: 'Mandatory',
         status: ba.status,
+        attachmentUrl: ba.attachmentUrl,
+        attachmentFileName: ba.attachmentName,
+        attachmentSize: ba.attachmentSize,
         createdAt: new Date(ba.createdAt).toLocaleDateString('en-IN'),
         submissions: [],
       }));
@@ -246,6 +252,9 @@ export const InstructorAssignmentManagement: React.FC = () => {
           maxSubmissionAttempts: ba.maxAttempts || 3,
           assignmentType: 'Mandatory',
           status: ba.status,
+          attachmentUrl: ba.attachmentUrl,
+          attachmentFileName: ba.attachmentName,
+          attachmentSize: ba.attachmentSize,
           createdAt: new Date(ba.createdAt).toLocaleDateString('en-IN'),
           submissions: subs,
         };
@@ -368,7 +377,14 @@ export const InstructorAssignmentManagement: React.FC = () => {
     maxSubmissionAttempts: 3,
     assignmentType: 'Mandatory' as InstructorAssignmentType,
     status: 'Published' as InstructorAssignmentStatus,
+    attachmentUrl: '' as string | undefined,
+    attachmentFileName: '' as string | undefined,
+    attachmentSize: '' as string | undefined,
   });
+
+  const [selectedAttachmentFile, setSelectedAttachmentFile] = useState<File | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState<boolean>(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   // Allowed File Types Multi-Select Dropdown State
   const [isFileTypesDropdownOpen, setIsFileTypesDropdownOpen] = useState<boolean>(false);
@@ -431,6 +447,9 @@ export const InstructorAssignmentManagement: React.FC = () => {
       return;
     }
     setEditingAssignment(null);
+    setSelectedAttachmentFile(null);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+
     const activeCourseId =
       (selectedCourseFilter !== 'All' ? selectedCourseFilter : paramCourseId) ||
       coursesList[0]?.id ||
@@ -447,6 +466,9 @@ export const InstructorAssignmentManagement: React.FC = () => {
       maxSubmissionAttempts: 3,
       assignmentType: 'Mandatory',
       status: 'Published',
+      attachmentUrl: '',
+      attachmentFileName: '',
+      attachmentSize: '',
     });
     setIsFileTypesDropdownOpen(false);
     setActiveTab('create');
@@ -458,6 +480,9 @@ export const InstructorAssignmentManagement: React.FC = () => {
       return;
     }
     setEditingAssignment(asg);
+    setSelectedAttachmentFile(null);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+
     setAssignmentForm({
       title: asg.title,
       courseId: asg.courseId,
@@ -472,12 +497,52 @@ export const InstructorAssignmentManagement: React.FC = () => {
       maxSubmissionAttempts: asg.maxSubmissionAttempts,
       assignmentType: asg.assignmentType,
       status: asg.status,
+      attachmentUrl: asg.attachmentUrl || '',
+      attachmentFileName: asg.attachmentFileName || '',
+      attachmentSize: asg.attachmentSize || '',
     });
     setIsFileTypesDropdownOpen(false);
     setActiveTab('create');
   };
 
-  const handleSaveAssignment = async (targetStatus?: InstructorAssignmentStatus) => {
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      showToast('File size exceeds the 15 MB limit. Please choose a smaller file.', 'warning');
+      if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+      return;
+    }
+
+    const formattedSize =
+      file.size >= 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+    setSelectedAttachmentFile(file);
+    setAssignmentForm((prev) => ({
+      ...prev,
+      attachmentFileName: file.name,
+      attachmentSize: formattedSize,
+    }));
+  };
+
+  const handleRemoveAttachment = () => {
+    setSelectedAttachmentFile(null);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+    setAssignmentForm((prev) => ({
+      ...prev,
+      attachmentUrl: '',
+      attachmentFileName: '',
+      attachmentSize: '',
+    }));
+  };
+
+  const handleSaveAssignment = async (
+    targetStatus?: InstructorAssignmentStatus,
+    redirectToQuiz: boolean = false
+  ) => {
     if (isPublishedCourse) {
       showToast('Cannot modify assignments on a published course.', 'warning');
       return;
@@ -510,6 +575,27 @@ export const InstructorAssignmentManagement: React.FC = () => {
 
     try {
       setIsSaving(true);
+
+      let finalAttachmentUrl = assignmentForm.attachmentUrl || undefined;
+      let finalAttachmentName = assignmentForm.attachmentFileName || undefined;
+      let finalAttachmentSize = assignmentForm.attachmentSize || undefined;
+
+      if (selectedAttachmentFile) {
+        setIsUploadingAttachment(true);
+        try {
+          const uploadRes = await uploadAssignmentAttachment(selectedAttachmentFile, courseId);
+          if (uploadRes && uploadRes.url) {
+            finalAttachmentUrl = uploadRes.url;
+            finalAttachmentName = uploadRes.name;
+            finalAttachmentSize = uploadRes.size;
+          }
+        } catch (uploadErr: any) {
+          showToast(`Attachment upload warning: ${uploadErr.message}`, 'warning');
+        } finally {
+          setIsUploadingAttachment(false);
+        }
+      }
+
       if (editingAssignment) {
         // Update backend assignment
         const res = await assignmentService.updateAssignment(editingAssignment.id, {
@@ -519,6 +605,9 @@ export const InstructorAssignmentManagement: React.FC = () => {
           maxScore: Number(assignmentForm.maxMarks) || 100,
           passingScore: Number(assignmentForm.passingMarks) || 60,
           maxAttempts: Number(assignmentForm.maxSubmissionAttempts) || 3,
+          attachmentUrl: finalAttachmentUrl,
+          attachmentName: finalAttachmentName,
+          attachmentSize: finalAttachmentSize,
           status: statusToSave,
         });
 
@@ -538,12 +627,20 @@ export const InstructorAssignmentManagement: React.FC = () => {
                     maxSubmissionAttempts: ba.maxAttempts || 3,
                     assignmentType: assignmentForm.assignmentType || a.assignmentType || 'Mandatory',
                     status: ba.status,
+                    attachmentUrl: ba.attachmentUrl || finalAttachmentUrl,
+                    attachmentFileName: ba.attachmentName || finalAttachmentName,
+                    attachmentSize: ba.attachmentSize || finalAttachmentSize,
                   }
                 : a
             )
           );
           showSuccessAlert('Success!', `Assignment "${assignmentForm.title}" updated successfully.`);
-          setActiveTab('list');
+          if (redirectToQuiz) {
+            const quizRoute = courseId ? `/instructor/quizzes?courseId=${courseId}` : '/instructor/quizzes';
+            navigate(quizRoute);
+          } else {
+            setActiveTab('list');
+          }
         }
       } else {
         // Create backend assignment
@@ -554,6 +651,9 @@ export const InstructorAssignmentManagement: React.FC = () => {
           maxScore: Number(assignmentForm.maxMarks) || 100,
           passingScore: Number(assignmentForm.passingMarks) || 60,
           maxAttempts: Number(assignmentForm.maxSubmissionAttempts) || 3,
+          attachmentUrl: finalAttachmentUrl,
+          attachmentName: finalAttachmentName,
+          attachmentSize: finalAttachmentSize,
           status: statusToSave,
         });
 
@@ -573,18 +673,27 @@ export const InstructorAssignmentManagement: React.FC = () => {
             maxSubmissionAttempts: ba.maxAttempts || 3,
             assignmentType: assignmentForm.assignmentType || 'Mandatory',
             status: ba.status,
+            attachmentUrl: ba.attachmentUrl || finalAttachmentUrl,
+            attachmentFileName: ba.attachmentName || finalAttachmentName,
+            attachmentSize: ba.attachmentSize || finalAttachmentSize,
             createdAt: new Date(ba.createdAt).toLocaleDateString('en-IN'),
             submissions: [],
           };
           setAssignments((prev) => [newAsg, ...prev]);
           showSuccessAlert('Assignment Created!', `Assignment "${assignmentForm.title}" created successfully.`);
-          setActiveTab('list');
+          if (redirectToQuiz) {
+            const quizRoute = courseId ? `/instructor/quizzes?courseId=${courseId}` : '/instructor/quizzes';
+            navigate(quizRoute);
+          } else {
+            setActiveTab('list');
+          }
         }
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to save assignment', 'warning');
     } finally {
       setIsSaving(false);
+      setIsUploadingAttachment(false);
     }
   };
 
@@ -686,24 +795,24 @@ export const InstructorAssignmentManagement: React.FC = () => {
     }
   };
 
-  // Check if current course has at least one mandatory assignment
+  // Check if current course has at least one assignment
   const targetCourseId =
     (activeCourseId && activeCourseId !== 'All' ? activeCourseId : (selectedCourseFilter !== 'All' ? selectedCourseFilter : coursesList[0]?.id)) || '';
-  const currentCourseMandatoryAssignments = assignments.filter(
-    (a) => (!targetCourseId || a.courseId === targetCourseId) && a.assignmentType === 'Mandatory'
+  const currentCourseAssignments = assignments.filter(
+    (a) => !targetCourseId || a.courseId === targetCourseId
   );
-  const hasMandatoryAssignment = currentCourseMandatoryAssignments.length > 0;
+  const hasMandatoryAssignment = currentCourseAssignments.length > 0 || assignments.length > 0;
 
   const handleSaveAndContinue = () => {
     if (!hasMandatoryAssignment) {
-      showToast('Please create at least one Mandatory assignment for this course before proceeding to the next step.', 'warning');
+      showToast('Please create at least one Assignment for this course before proceeding to Quiz Management.', 'warning');
       return;
     }
     showToast('Assignments verified! Redirecting to Quiz Management...');
     setTimeout(() => {
       const targetRoute = targetCourseId ? `/instructor/quizzes?courseId=${targetCourseId}` : '/instructor/quizzes';
       navigate(targetRoute);
-    }, 600);
+    }, 300);
   };
 
   return (
@@ -973,9 +1082,6 @@ export const InstructorAssignmentManagement: React.FC = () => {
                     <tr key={asg.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="p-4">
                         <div className="font-bold text-slate-900 dark:text-slate-100 max-w-xs">{asg.title}</div>
-                        {asg.description && (
-                          <span className="text-[11px] text-slate-400 line-clamp-1 max-w-xs">{asg.description}</span>
-                        )}
                       </td>
                       <td className="p-4">
                         <div className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 max-w-xs">
@@ -1316,14 +1422,108 @@ export const InstructorAssignmentManagement: React.FC = () => {
 
             {/* Attachment (Optional) */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Attachment (Optional)</label>
-              <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
-                <input
-                  type="file"
-                  className="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
-                />
-                <span className="text-[11px] text-slate-400">Attach reference sheet or sample template (Max 10MB)</span>
-              </div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                <span>Attachment / Reference Material (Optional)</span>
+                {isUploadingAttachment && (
+                  <span className="text-[11px] text-brand-600 dark:text-brand-400 font-semibold animate-pulse">
+                    Uploading attachment...
+                  </span>
+                )}
+              </label>
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={attachmentInputRef}
+                onChange={handleAttachmentChange}
+                className="hidden"
+                id="instructor-assignment-attachment-input"
+              />
+
+              {/* If an attachment is attached or selected */}
+              {(selectedAttachmentFile || assignmentForm.attachmentUrl || assignmentForm.attachmentFileName) ? (
+                <div className="p-3.5 bg-brand-50/60 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800/80 rounded-xl flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-brand-100 dark:bg-brand-900/60 text-brand-600 dark:text-brand-300 flex items-center justify-center shrink-0">
+                      <FiPaperclip className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                        {selectedAttachmentFile?.name || assignmentForm.attachmentFileName || 'Attached Reference Document'}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <span>{selectedAttachmentFile ? `${(selectedAttachmentFile.size / (1024 * 1024)).toFixed(2)} MB` : assignmentForm.attachmentSize || 'Reference File'}</span>
+                        {selectedAttachmentFile && (
+                          <span className="px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] rounded font-bold">
+                            Ready to upload on Save
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {assignmentForm.attachmentUrl && !selectedAttachmentFile && (
+                      <a
+                        href={assignmentForm.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 inline-flex items-center gap-1"
+                        title="Download / View Attachment"
+                      >
+                        <FiDownload className="w-3.5 h-3.5 text-brand-600" />
+                        <span className="hidden sm:inline">Preview</span>
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (attachmentInputRef.current) attachmentInputRef.current.click();
+                      }}
+                      className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 inline-flex items-center gap-1"
+                    >
+                      <FiUploadCloud className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Replace</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveAttachment}
+                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-lg transition-colors"
+                      title="Remove Attachment"
+                    >
+                      <FiX className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* No attachment selected */
+                <div
+                  onClick={() => {
+                    if (attachmentInputRef.current) attachmentInputRef.current.click();
+                  }}
+                  className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer hover:border-brand-500 hover:bg-brand-50/20 dark:hover:bg-brand-950/20 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                      <FiPaperclip className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                        Attach Reference Sheet, Starter Code, or Sample Template
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Supports PDF, ZIP, DOCX, Code files, etc. (Max 15MB)
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 rounded-lg text-xs font-bold hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors shrink-0"
+                  >
+                    Choose File
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1336,12 +1536,17 @@ export const InstructorAssignmentManagement: React.FC = () => {
               variant="outline"
               size="md"
               disabled={isSaving}
-              onClick={() => handleSaveAssignment('Draft')}
+              onClick={() => handleSaveAssignment('Draft', false)}
               className="text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               {isSaving ? 'Saving...' : 'Save Draft'}
             </Button>
-            <Button variant="primary" size="md" onClick={() => handleSaveAssignment('Published')} disabled={isSaving}>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => handleSaveAssignment('Published', true)}
+              disabled={isSaving}
+            >
               {isSaving ? 'Saving...' : 'Save & Continue to Quiz Management'}
             </Button>
           </div>

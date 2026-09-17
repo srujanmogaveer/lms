@@ -38,6 +38,7 @@ export interface InstructorAssignmentItem {
   status: InstructorAssignmentStatus;
   attachmentUrl?: string;
   attachmentFileName?: string;
+  attachmentSize?: string;
   createdAt: string; // DD/MM/YYYY
   submissions: InstructorStudentSubmission[];
 }

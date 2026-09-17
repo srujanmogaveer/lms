@@ -120,10 +120,10 @@ export const ForgotPassword: React.FC = () => {
           <TextInput
             label="Registered Email Address"
             type="email"
-            placeholder="alex@example.com"
+            placeholder="example@gmail.com"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value.toLowerCase())}
             disabled={isLoading}
           />
 

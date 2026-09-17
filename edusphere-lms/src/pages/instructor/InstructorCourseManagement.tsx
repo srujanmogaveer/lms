@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiBookOpen,
@@ -27,7 +27,9 @@ import {
   FiX,
   FiAlertCircle,
   FiInfo,
-  FiUploadCloud
+  FiUploadCloud,
+  FiSend,
+  FiRefreshCw,
 } from 'react-icons/fi';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -46,10 +48,13 @@ import {
 } from '../../data/instructorCoursesData';
 import { type CategoryItem } from '../../data/categoryData';
 import { categoryService } from '../../services/categoryService';
+import { VideoLessonPlayer } from '../../components/player/VideoLessonPlayer';
+import type { PlayerLesson } from '../../types';
 
 import { CourseProgressTracker } from '../../components/instructor/CourseProgressTracker';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { courseService } from '../../services/courseService';
+import { courseService, type CourseCompletionSummary } from '../../services/courseService';
+import { curriculumService } from '../../services/curriculumService';
 
 export const InstructorCourseManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -66,6 +71,43 @@ export const InstructorCourseManagement: React.FC = () => {
   const [dbCategories, setDbCategories] = useState<CategoryItem[]>([]);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState<boolean>(true);
 
+  // Map of course completion summaries keyed by courseId
+  const [completionMap, setCompletionMap] = useState<Record<string, CourseCompletionSummary>>({});
+
+  // Fetch completion summaries for draft/rejected courses
+  const fetchCompletionSummaries = async (courseList: InstructorCourseItem[]) => {
+    const draftCourses = courseList.filter(
+      (c) => c.courseStatus !== 'Published' && c.approvalStatus !== 'Pending Approval'
+    );
+    if (draftCourses.length === 0) return;
+
+    try {
+      const results = await Promise.all(
+        draftCourses.map(async (c) => {
+          try {
+            const res = await courseService.getCourseCompletion(c.id);
+            if (res.success && res.data) {
+              return { courseId: c.id, completion: res.data };
+            }
+          } catch {
+            return null;
+          }
+          return null;
+        })
+      );
+
+      const newMap: Record<string, CourseCompletionSummary> = {};
+      results.forEach((r) => {
+        if (r && r.courseId && r.completion) {
+          newMap[r.courseId] = r.completion;
+        }
+      });
+      setCompletionMap((prev) => ({ ...prev, ...newMap }));
+    } catch {
+      // Ignore background errors
+    }
+  };
+
   // Load Instructor Courses & Categories in parallel on mount
   const fetchInstructorData = async () => {
     try {
@@ -79,6 +121,7 @@ export const InstructorCourseManagement: React.FC = () => {
 
       if (courseRes.success && Array.isArray(courseRes.data)) {
         setCourses(courseRes.data);
+        fetchCompletionSummaries(courseRes.data);
       }
       if (catRes.success && Array.isArray(catRes.data)) {
         setDbCategories(catRes.data);
@@ -142,6 +185,11 @@ export const InstructorCourseManagement: React.FC = () => {
   const [thumbnailError, setThumbnailError] = useState<string>('');
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState<boolean>(false);
   const [thumbnailFitMode, setThumbnailFitMode] = useState<'contain' | 'cover'>('contain');
+
+  const [promoVideoMode, setPromoVideoMode] = useState<'upload' | 'url'>('upload');
+  const [promoVideoError, setPromoVideoError] = useState<string>('');
+  const [isUploadingPromoVideo, setIsUploadingPromoVideo] = useState<boolean>(false);
+  const [promoVideoFileName, setPromoVideoFileName] = useState<string>('');
 
   const [formData, setFormData] = useState<{
     title: string;
@@ -290,7 +338,20 @@ export const InstructorCourseManagement: React.FC = () => {
     }
   };
 
-  // Form Reset / Load Form
+  // Promo Video Player Lesson Adapter
+  const promoPlayerLesson: PlayerLesson = useMemo(() => ({
+    id: `promo-preview-${formData.title || 'course'}`,
+    moduleId: 'promo-module',
+    moduleTitle: 'Course Preview',
+    title: formData.title || 'Course Promotional Video',
+    duration: '02:00',
+    type: 'video',
+    isCompleted: false,
+    isBookmarked: false,
+    videoUrl: formData.promoVideoUrl,
+    videoPoster: formData.thumbnail || '',
+  }), [formData.title, formData.promoVideoUrl, formData.thumbnail]);
+
   const openCreateForm = () => {
     const firstCat = dbCategories[0];
     const firstSub = (firstCat?.subcategories || [])[0];
@@ -311,6 +372,9 @@ export const InstructorCourseManagement: React.FC = () => {
       learningOutcomes: 'Master core concepts and complete practical projects.',
     });
     setEditingCourse(null);
+    setPromoVideoError('');
+    setPromoVideoFileName('');
+    setPromoVideoMode('upload');
     setIsCreateDrawerOpen(true);
   };
 
@@ -345,8 +409,12 @@ export const InstructorCourseManagement: React.FC = () => {
       requirements: course.requirements.join('\n'),
       learningOutcomes: course.learningOutcomes.join('\n'),
     });
+    setPromoVideoError('');
+    setPromoVideoFileName('');
+    setPromoVideoMode(course.promoVideoUrl ? 'url' : 'upload');
     setIsCreateDrawerOpen(true);
   };
+
   // Image Upload & Validation Handlers
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setThumbnailError('');
@@ -385,8 +453,63 @@ export const InstructorCourseManagement: React.FC = () => {
     showToast('Thumbnail removed.', 'info');
   };
 
+  // Promotional Video Upload from Desktop & Validation Handlers
+  const handlePromoVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPromoVideoError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isVideo = file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|mov|mkv|ogg|m4v)$/i);
+    if (!isVideo) {
+      setPromoVideoError('Please upload a valid video file (.mp4, .webm, .mov, etc.).');
+      showToast('Invalid video format. Please upload an MP4 or valid video file.', 'warning');
+      return;
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      setPromoVideoError('Video file exceeds the 100MB size limit.');
+      showToast('Video file is too large. Max size is 100MB.', 'warning');
+      return;
+    }
+
+    try {
+      setIsUploadingPromoVideo(true);
+      showToast('Uploading promotional video to Supabase Storage...', 'info');
+      const res = await curriculumService.uploadVideo(
+        file,
+        'promo',
+        editingCourse?.id || 'new-course',
+        'promo-video'
+      );
+
+      if (res.success && res.data) {
+        const videoUrl = res.data.url || res.data.path || '';
+        setFormData((prev) => ({ ...prev, promoVideoUrl: videoUrl }));
+        setPromoVideoFileName(res.data.fileName || file.name);
+        setPromoVideoError('');
+        showToast('Promotional video uploaded successfully!');
+      } else {
+        throw new Error(res.message || 'Failed to upload promotional video.');
+      }
+    } catch (err: any) {
+      console.error('Promo video upload error:', err);
+      setPromoVideoError(err.message || 'Failed to upload promotional video.');
+      showToast(err.message || 'Failed to upload promotional video.', 'warning');
+    } finally {
+      setIsUploadingPromoVideo(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemovePromoVideo = () => {
+    setFormData((prev) => ({ ...prev, promoVideoUrl: '' }));
+    setPromoVideoFileName('');
+    setPromoVideoError('');
+    showToast('Promotional video removed.', 'info');
+  };
+
   // Actions
-  const handleSaveCourse = async (isSubmitForApproval: boolean) => {
+  const handleSaveCourse = async (isSubmitForApproval: boolean, redirectToCurriculum: boolean = false) => {
     setThumbnailError('');
 
     if (!formData.title.trim()) {
@@ -413,7 +536,7 @@ export const InstructorCourseManagement: React.FC = () => {
       .map((o) => o.trim())
       .filter((o) => o.length > 0);
 
-    let realCourseId = editingCourse ? editingCourse.id : '';
+    let savedCourseId = editingCourse ? editingCourse.id : '';
 
     try {
       setIsSaving(true);
@@ -441,10 +564,14 @@ export const InstructorCourseManagement: React.FC = () => {
         const updatedCourse = updateRes.data;
         if (updatedCourse) {
           setCourses((prev) => prev.map((c) => (c.id === editingCourse.id ? (updatedCourse as any) : c)));
+          setEditingCourse(updatedCourse as any);
         }
-        showToast(`"${formData.title}" saved!`);
-        setIsCreateDrawerOpen(false);
-        navigate(`/instructor/curriculum?courseId=${editingCourse.id}`);
+        showToast(`"${formData.title}" draft saved successfully!`);
+
+        if (redirectToCurriculum) {
+          setIsCreateDrawerOpen(false);
+          navigate(`/instructor/curriculum?courseId=${editingCourse.id}`);
+        }
       } else {
         // Create mode via backend API
         const createRes = await courseService.createCourse({
@@ -467,20 +594,66 @@ export const InstructorCourseManagement: React.FC = () => {
         });
 
         const createdCourse = createRes.data;
-        realCourseId = createdCourse?.id || '';
+        savedCourseId = createdCourse?.id || '';
         if (createdCourse) {
           setCourses((prev) => [createdCourse as any, ...prev]);
+          setEditingCourse(createdCourse as any);
         }
-        showToast(`"${formData.title}" draft saved!`);
-        setIsCreateDrawerOpen(false);
-        if (realCourseId) {
-          navigate(`/instructor/curriculum?courseId=${realCourseId}`);
+        showToast(`"${formData.title}" draft saved successfully!`);
+
+        if (redirectToCurriculum && savedCourseId) {
+          setIsCreateDrawerOpen(false);
+          navigate(`/instructor/curriculum?courseId=${savedCourseId}`);
         }
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to save course', 'warning');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // State for tracking course submission loading
+  const [submittingCourseId, setSubmittingCourseId] = useState<string | null>(null);
+
+  // Submit course for admin approval
+  const handleSubmitForApproval = async (course: InstructorCourseItem) => {
+    const isConfirmed = await showConfirmAlert(
+      'Submit for Admin Approval?',
+      `Are you sure you want to submit "${course.title}" for administrator review? Once submitted, our team will review the curriculum and content for publishing.`,
+      'Yes, Submit for Approval',
+      'Cancel'
+    );
+
+    if (!isConfirmed) return;
+
+    try {
+      setSubmittingCourseId(course.id);
+      const res = await courseService.submitCourseForApproval(course.id);
+      if (res.success && res.data) {
+        setCourses((prev) =>
+          prev.map((c) =>
+            c.id === course.id
+              ? {
+                  ...c,
+                  approvalStatus: 'Pending Approval',
+                  courseStatus: 'Draft',
+                  rejectionReason: undefined,
+                }
+              : c
+          )
+        );
+        showSuccessAlert(
+          'Submitted for Review!',
+          `"${course.title}" has been submitted for administrator review. You will be notified once reviewed.`
+        );
+      } else {
+        showToast(res.message || 'Failed to submit course for approval.', 'warning');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to submit course for approval.', 'warning');
+    } finally {
+      setSubmittingCourseId(null);
     }
   };
 
@@ -931,6 +1104,31 @@ export const InstructorCourseManagement: React.FC = () => {
 
               {/* Action Buttons Section */}
               <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+                {/* Submit for Admin Approval (Only when all 5 course modules are 100% complete) */}
+                {course.courseStatus !== 'Published' &&
+                  course.approvalStatus !== 'Pending Approval' &&
+                  completionMap[course.id]?.courseComplete === true && (
+                    <button
+                      type="button"
+                      disabled={submittingCourseId === course.id}
+                      onClick={() => handleSubmitForApproval(course)}
+                      className="w-full py-2 px-3 text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      title="All requirements complete! Submit this course to the administrator for review and approval"
+                    >
+                      {submittingCourseId === course.id ? (
+                        <>
+                          <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Submitting for Approval...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FiSend className="w-3.5 h-3.5" />
+                          <span>Submit for Admin Approval</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
                 {/* Main Course Lifecycle Actions */}
                 <div className="flex items-center justify-between gap-1.5">
                   <button
@@ -1102,6 +1300,22 @@ export const InstructorCourseManagement: React.FC = () => {
                       >
                         <FiEye className="w-4 h-4" />
                       </button>
+                      {course.courseStatus !== 'Published' &&
+                        course.approvalStatus !== 'Pending Approval' &&
+                        completionMap[course.id]?.courseComplete === true && (
+                          <button
+                            onClick={() => handleSubmitForApproval(course)}
+                            disabled={submittingCourseId === course.id}
+                            className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950 inline-flex items-center disabled:opacity-50"
+                            title="All requirements complete! Submit for Admin Approval"
+                          >
+                            {submittingCourseId === course.id ? (
+                              <FiRefreshCw className="w-4 h-4 animate-spin text-purple-600" />
+                            ) : (
+                              <FiSend className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
                       {course.courseStatus === 'Published' || course.approvalStatus === 'Pending Approval' ? (
                         <span
                           className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 inline-flex items-center cursor-not-allowed"
@@ -1196,17 +1410,17 @@ export const InstructorCourseManagement: React.FC = () => {
       )}
 
       {/* ======================================================== */}
-      {/* DRAWER: Create / Edit Course Modal Side Drawer */}
+      {/* MODAL: Create / Edit Course Modal (Centered) */}
       {/* ======================================================== */}
       <AnimatePresence>
         {isCreateDrawerOpen && (
-          <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex justify-end">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/70 backdrop-blur-xs">
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 dark:border-slate-800"
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="w-full max-w-3xl bg-white dark:bg-slate-900 max-h-[90vh] rounded-3xl shadow-2xl flex flex-col justify-between border border-slate-200 dark:border-slate-800 overflow-hidden"
             >
               {/* Drawer Header */}
               <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
@@ -1524,17 +1738,149 @@ export const InstructorCourseManagement: React.FC = () => {
                     </div>
                   )}
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Promotional Video URL <span className="font-normal text-slate-400 dark:text-slate-500">(Optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="https://www.youtube.com/embed/... (Optional)"
-                      value={formData.promoVideoUrl}
-                      onChange={(e) => setFormData({ ...formData, promoVideoUrl: e.target.value })}
-                      className="w-full px-4 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none"
-                    />
+                  {/* Promotional Video (Teaser) Section */}
+                  <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Course Promotional Video / Teaser <span className="font-normal text-slate-400 dark:text-slate-500">(Optional)</span>
+                        </label>
+                        <p className="text-[10px] text-slate-400">
+                          Upload a video directly from your computer or provide an external video link.
+                        </p>
+                      </div>
+
+                      {/* Video Source Toggle: Upload vs URL */}
+                      <div className="flex items-center bg-slate-200 dark:bg-slate-700 p-0.5 rounded-lg text-[10px] font-semibold w-fit">
+                        <button
+                          type="button"
+                          onClick={() => setPromoVideoMode('upload')}
+                          className={`px-3 py-1 rounded-md transition-all ${
+                            promoVideoMode === 'upload'
+                              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          }`}
+                        >
+                          Upload from Desktop
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPromoVideoMode('url')}
+                          className={`px-3 py-1 rounded-md transition-all ${
+                            promoVideoMode === 'url'
+                              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          }`}
+                        >
+                          Video URL / Embed
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Option 1: Desktop Video File Upload */}
+                    {promoVideoMode === 'upload' && (
+                      <div className="space-y-2">
+                        <div
+                          className={`border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-4 text-center transition-colors relative ${
+                            isUploadingPromoVideo
+                              ? 'bg-slate-100 dark:bg-slate-800 opacity-70 cursor-wait'
+                              : 'hover:bg-slate-100/50 dark:hover:bg-slate-800/80 cursor-pointer'
+                          }`}
+                        >
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm,video/ogg,video/quicktime,video/*,.mp4,.webm,.mov,.mkv,.m4v"
+                            onChange={handlePromoVideoUpload}
+                            disabled={isUploadingPromoVideo}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed"
+                          />
+                          <div className="flex flex-col items-center gap-1.5 pointer-events-none">
+                            {isUploadingPromoVideo ? (
+                              <>
+                                <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                  Uploading video to Supabase Storage...
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <FiVideo className="w-6 h-6 text-indigo-500" />
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                  Click to upload promotional video or drag & drop
+                                </p>
+                                <p className="text-[10px] text-slate-400">
+                                  Supported: MP4, WebM, MOV, MKV (Max 100MB)
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Option 2: Video URL Input */}
+                    {promoVideoMode === 'url' && (
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="https://www.youtube.com/watch?v=... or direct MP4 URL"
+                          value={formData.promoVideoUrl}
+                          onChange={(e) => {
+                            setFormData({ ...formData, promoVideoUrl: e.target.value });
+                            setPromoVideoError('');
+                          }}
+                          className="w-full px-3.5 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Supports YouTube watch/share links, Vimeo player links, or direct MP4 video URLs.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Validation / Error Message */}
+                    {promoVideoError && (
+                      <div className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                        <FiAlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{promoVideoError}</span>
+                      </div>
+                    )}
+
+                    {/* Live Video Preview Box */}
+                    {formData.promoVideoUrl && formData.promoVideoUrl.trim() !== '' && (
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1.5">
+                            <FiVideo className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>Promotional Video Preview</span>
+                            {promoVideoFileName && (
+                              <span className="font-normal text-slate-500 truncate max-w-[160px]">
+                                ({promoVideoFileName})
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <label className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+                              Replace
+                              <input
+                                type="file"
+                                accept="video/mp4,video/webm,video/ogg,video/quicktime,video/*,.mp4,.webm,.mov,.mkv,.m4v"
+                                onChange={handlePromoVideoUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={handleRemovePromoVideo}
+                              className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+
+                        <VideoLessonPlayer key={formData.promoVideoUrl} lesson={promoPlayerLesson} showDetailsBanner={false} />
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1599,13 +1945,40 @@ export const InstructorCourseManagement: React.FC = () => {
               </div>
 
               {/* Drawer Footer Buttons */}
-              <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-end gap-3">
-                <Button variant="outline" size="md" onClick={() => setIsCreateDrawerOpen(false)} disabled={isSaving}>
+              <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 flex flex-wrap items-center justify-between gap-3">
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => setIsCreateDrawerOpen(false)}
+                  disabled={isSaving}
+                  className="rounded-xl"
+                >
                   Cancel
                 </Button>
-                <Button variant="primary" size="md" onClick={() => handleSaveCourse(false)} disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Draft'}
-                </Button>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => handleSaveCourse(false, false)}
+                    disabled={isSaving}
+                    className="border-slate-300 dark:border-slate-700 font-bold rounded-xl flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <FiFileText className="w-4 h-4 text-slate-500" />
+                    {isSaving ? 'Saving...' : 'Save Draft'}
+                  </Button>
+
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => handleSaveCourse(false, true)}
+                    disabled={isSaving}
+                    className="bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-md"
+                  >
+                    <span>Next Step: Curriculum</span>
+                    <FiChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -1708,8 +2081,34 @@ export const InstructorCourseManagement: React.FC = () => {
               </div>
 
               {/* Footer */}
-              <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end">
-                <Button variant="primary" size="md" onClick={() => setPreviewCourse(null)}>
+              <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex flex-wrap items-center justify-between gap-3">
+                {previewCourse.courseStatus !== 'Published' &&
+                previewCourse.approvalStatus !== 'Pending Approval' &&
+                completionMap[previewCourse.id]?.courseComplete === true ? (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    disabled={submittingCourseId === previewCourse.id}
+                    onClick={async () => {
+                      await handleSubmitForApproval(previewCourse);
+                      setPreviewCourse(null);
+                    }}
+                    className="bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-1.5"
+                  >
+                    {submittingCourseId === previewCourse.id ? (
+                      <>
+                        <FiRefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FiSend className="w-4 h-4" />
+                        <span>Submit for Admin Approval</span>
+                      </>
+                    )}
+                  </Button>
+                ) : <div />}
+                <Button variant="outline" size="md" onClick={() => setPreviewCourse(null)}>
                   Close Preview
                 </Button>
               </div>

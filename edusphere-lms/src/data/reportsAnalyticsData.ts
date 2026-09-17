@@ -29,6 +29,9 @@ export interface CourseAnalyticsData {
   pendingApproval: number;
   publishedCourses: number;
   archivedCourses: number;
+  totalRevenueINR?: number;
+  totalStudentsEnrolled?: number;
+  averageRating?: string;
   mostPopularCourses: { id: string; title: string; instructor: string; category: string; students: number; rating: number }[];
   categoryDistribution: { name: string; count: number; color: string }[];
   monthlyPublications: { month: string; count: number }[];
@@ -76,7 +79,12 @@ export const mockStudentAnalytics: StudentAnalyticsData = {
     { month: 'Apr', count: 135 },
     { month: 'May', count: 160 },
     { month: 'Jun', count: 185 },
-    { month: 'Jul', count: 210 }
+    { month: 'Jul', count: 210 },
+    { month: 'Aug', count: 235 },
+    { month: 'Sep', count: 260 },
+    { month: 'Oct', count: 290 },
+    { month: 'Nov', count: 315 },
+    { month: 'Dec', count: 350 }
   ],
   activeVsInactive: [
     { name: 'Active Students', value: 1120, color: '#10B981' },
@@ -96,7 +104,12 @@ export const mockInstructorAnalytics: InstructorAnalyticsData = {
     { month: 'Apr', count: 8 },
     { month: 'May', count: 7 },
     { month: 'Jun', count: 10 },
-    { month: 'Jul', count: 8 }
+    { month: 'Jul', count: 8 },
+    { month: 'Aug', count: 11 },
+    { month: 'Sep', count: 9 },
+    { month: 'Oct', count: 12 },
+    { month: 'Nov', count: 14 },
+    { month: 'Dec', count: 16 }
   ]
 };
 
@@ -127,7 +140,12 @@ export const mockCourseAnalytics: CourseAnalyticsData = {
     { month: 'Apr', count: 22 },
     { month: 'May', count: 25 },
     { month: 'Jun', count: 28 },
-    { month: 'Jul', count: 32 }
+    { month: 'Jul', count: 32 },
+    { month: 'Aug', count: 35 },
+    { month: 'Sep', count: 38 },
+    { month: 'Oct', count: 42 },
+    { month: 'Nov', count: 46 },
+    { month: 'Dec', count: 50 }
   ]
 };
 
@@ -145,7 +163,12 @@ export const mockRevenueAnalytics: RevenueAnalyticsData = {
     { month: 'Apr', revenue: 320000, platformShare: 48000, instructorShare: 272000 },
     { month: 'May', revenue: 390000, platformShare: 58500, instructorShare: 331500 },
     { month: 'Jun', revenue: 450000, platformShare: 67500, instructorShare: 382500 },
-    { month: 'Jul', revenue: 480000, platformShare: 72000, instructorShare: 408000 }
+    { month: 'Jul', revenue: 480000, platformShare: 72000, instructorShare: 408000 },
+    { month: 'Aug', revenue: 520000, platformShare: 78000, instructorShare: 442000 },
+    { month: 'Sep', revenue: 560000, platformShare: 84000, instructorShare: 476000 },
+    { month: 'Oct', revenue: 610000, platformShare: 91500, instructorShare: 518500 },
+    { month: 'Nov', revenue: 670000, platformShare: 100500, instructorShare: 569500 },
+    { month: 'Dec', revenue: 740000, platformShare: 111000, instructorShare: 629000 }
   ],
   revenueByCategory: [
     { category: 'Web Development', amountINR: 620000 },
@@ -168,7 +191,12 @@ export const mockLearningAnalytics: LearningAnalyticsData = {
     { month: 'Apr', rate: 82 },
     { month: 'May', rate: 84 },
     { month: 'Jun', rate: 87 },
-    { month: 'Jul', rate: 89 }
+    { month: 'Jul', rate: 89 },
+    { month: 'Aug', rate: 91 },
+    { month: 'Sep', rate: 93 },
+    { month: 'Oct', rate: 94 },
+    { month: 'Nov', rate: 95 },
+    { month: 'Dec', rate: 96 }
   ],
   quizPerformance: [
     { month: 'Jan', passRate: 80 },
@@ -177,7 +205,12 @@ export const mockLearningAnalytics: LearningAnalyticsData = {
     { month: 'Apr', passRate: 86 },
     { month: 'May', passRate: 88 },
     { month: 'Jun', passRate: 90 },
-    { month: 'Jul', passRate: 92 }
+    { month: 'Jul', passRate: 92 },
+    { month: 'Aug', passRate: 93 },
+    { month: 'Sep', passRate: 94 },
+    { month: 'Oct', passRate: 95 },
+    { month: 'Nov', passRate: 96 },
+    { month: 'Dec', passRate: 97 }
   ],
   certificateGrowth: [
     { month: 'Jan', count: 45 },
@@ -186,6 +219,11 @@ export const mockLearningAnalytics: LearningAnalyticsData = {
     { month: 'Apr', count: 210 },
     { month: 'May', count: 310 },
     { month: 'Jun', count: 460 },
-    { month: 'Jul', count: 890 }
+    { month: 'Jul', count: 620 },
+    { month: 'Aug', count: 710 },
+    { month: 'Sep', count: 790 },
+    { month: 'Oct', count: 830 },
+    { month: 'Nov', count: 860 },
+    { month: 'Dec', count: 890 }
   ]
 };

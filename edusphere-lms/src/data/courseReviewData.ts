@@ -13,7 +13,7 @@ export interface ReviewLessonItem {
   title: string;
   type: 'Video' | 'PDF' | 'Text' | 'Resource';
   durationMinutes: number;
-  status: 'Published' | 'Draft';
+  status: 'Published' | 'Under Review' | 'Ready' | 'Draft' | string;
   videoUrl?: string;
   pdfUrl?: string;
   pdfPageCount?: number;

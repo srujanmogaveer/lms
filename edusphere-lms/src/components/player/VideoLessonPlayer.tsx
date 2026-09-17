@@ -23,11 +23,13 @@ import { curriculumService } from '../../services/curriculumService';
 interface VideoLessonPlayerProps {
   lesson: PlayerLesson;
   onLessonEnded?: () => void;
+  showDetailsBanner?: boolean;
+  className?: string;
 }
 
 const LESSON_RESOURCES_BUCKET = 'lesson-resources';
 
-type VideoSourceType = 'youtube' | 'vimeo' | 'storage' | 'direct' | 'empty' | 'invalid';
+type VideoSourceType = 'youtube' | 'vimeo' | 'gdrive' | 'storage' | 'direct' | 'empty' | 'invalid';
 
 interface ParsedVideoSource {
   type: VideoSourceType;
@@ -38,14 +40,22 @@ interface ParsedVideoSource {
 }
 
 /**
- * Utility to parse and format YouTube / Vimeo / Storage / Direct video URLs safely
+ * Utility to parse and format YouTube / Vimeo / Google Drive / Storage / Direct video URLs safely
  */
 function parseVideoSource(rawUrl?: string): ParsedVideoSource {
   if (!rawUrl || !rawUrl.trim()) {
     return { type: 'empty' };
   }
 
-  const url = rawUrl.trim();
+  let url = rawUrl.trim();
+
+  // If instructor pasted an <iframe> embed code, extract the src URL
+  if (url.includes('<iframe') && url.includes('src=')) {
+    const srcMatch = url.match(/src=["']([^"']+)["']/i);
+    if (srcMatch && srcMatch[1]) {
+      url = srcMatch[1].trim();
+    }
+  }
 
   try {
     // 1. YouTube matchers
@@ -55,7 +65,7 @@ function parseVideoSource(rawUrl?: string): ParsedVideoSource {
         const pathPart = url.split('youtu.be/')[1];
         videoId = pathPart.split('?')[0].split('/')[0];
       } else if (url.includes('watch?v=')) {
-        const vParam = new URL(url).searchParams.get('v');
+        const vParam = new URL(url.startsWith('http') ? url : `https://${url}`).searchParams.get('v');
         videoId = vParam || url.split('watch?v=')[1]?.split('&')[0];
       } else if (url.includes('/embed/')) {
         const pathPart = url.split('/embed/')[1];
@@ -88,7 +98,36 @@ function parseVideoSource(rawUrl?: string): ParsedVideoSource {
       }
     }
 
-    // 3. Direct HTTP/HTTPS Video URLs or Blob/Data URLs
+    // 3. Google Drive matchers
+    if (
+      url.includes('drive.google.com') ||
+      url.includes('docs.google.com') ||
+      url.includes('drive.usercontent.google.com')
+    ) {
+      let fileId = '';
+      if (url.includes('/file/d/')) {
+        fileId = url.split('/file/d/')[1]?.split('/')[0]?.split('?')[0] || '';
+      } else if (url.includes('/d/')) {
+        fileId = url.split('/d/')[1]?.split('/')[0]?.split('?')[0] || '';
+      } else if (url.includes('id=')) {
+        try {
+          const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+          fileId = urlObj.searchParams.get('id') || '';
+        } catch {
+          fileId = url.split('id=')[1]?.split('&')[0] || '';
+        }
+      }
+
+      if (fileId) {
+        return {
+          type: 'gdrive',
+          videoId: fileId,
+          embedUrl: `https://drive.google.com/file/d/${fileId}/preview`,
+        };
+      }
+    }
+
+    // 4. Direct HTTP/HTTPS Video URLs or Blob/Data URLs
     if (
       url.startsWith('http://') ||
       url.startsWith('https://') ||
@@ -101,7 +140,7 @@ function parseVideoSource(rawUrl?: string): ParsedVideoSource {
       };
     }
 
-    // 4. Supabase Storage Object Path
+    // 5. Supabase Storage Object Path
     if (url.includes('/') && !url.includes('://')) {
       return {
         type: 'storage',
@@ -147,7 +186,12 @@ function loadYouTubeApi(): Promise<void> {
   return ytApiPromise;
 }
 
-export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({ lesson, onLessonEnded }) => {
+export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
+  lesson,
+  onLessonEnded,
+  showDetailsBanner = false,
+  className = '',
+}) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
@@ -620,270 +664,289 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({ lesson, on
     (source.type === 'vimeo' && source.videoId) ||
     ((source.type === 'direct' || source.type === 'storage') && resolvedVideoUrl && !hasError);
 
+  const videoPlayerCanvas = (
+    <div
+      ref={containerRef}
+      className={`relative group w-full aspect-video rounded-2xl overflow-hidden bg-slate-950 shadow-2xl border border-slate-800 flex flex-col justify-between ${className}`}
+    >
+      {/* 1. YOUTUBE VIDEO CANVAS WITH API INTEGRATION */}
+      {source.type === 'youtube' && source.videoId && (
+        <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
+          <div id={ytContainerId} className="w-full h-full pointer-events-none scale-105" />
+
+          {/* Poster Image (shown before playback starts) */}
+          {!isPlaying && progressPercent === 0 && posterUrl && (
+            <img
+              src={posterUrl}
+              alt={lesson?.title || 'Video Lesson'}
+              onError={() => {
+                if (source.videoId && !posterUrl.includes('hqdefault')) {
+                  setPosterUrl(`https://img.youtube.com/vi/${source.videoId}/hqdefault.jpg`);
+                }
+              }}
+              className="absolute inset-0 w-full h-full object-cover z-5"
+            />
+          )}
+        </div>
+      )}
+
+      {/* 2. VIMEO CANVAS WITH VIMEO PLAYER SDK */}
+      {source.type === 'vimeo' && source.videoId && (
+        <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
+          <div
+            ref={vimeoContainerRef}
+            className="w-full h-full pointer-events-none scale-105 [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:border-0"
+          />
+
+          {/* Poster Image (shown before playback starts) */}
+          {!isPlaying && progressPercent === 0 && posterUrl && (
+            <img
+              src={posterUrl}
+              alt={lesson?.title || 'Video Lesson'}
+              className="absolute inset-0 w-full h-full object-cover z-5"
+            />
+          )}
+        </div>
+      )}
+
+      {/* 3. GOOGLE DRIVE EMBED CANVAS */}
+      {source.type === 'gdrive' && source.videoId && (
+        <div className="absolute inset-0 w-full h-full bg-black overflow-hidden relative">
+          <iframe
+            src={`https://drive.google.com/file/d/${source.videoId}/preview`}
+            className="w-full h-[calc(100%+54px)] -mt-[54px] border-0"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture; accelerometer; gyroscope"
+            allowFullScreen
+            title={lesson?.title || 'Google Drive Video'}
+          />
+        </div>
+      )}
+
+      {/* 4. DIRECT OR STORAGE RESOLVED HTML5 VIDEO */}
+      {(source.type === 'direct' || source.type === 'storage') && resolvedVideoUrl && !hasError && (
+        <video
+          ref={videoRef}
+          key={resolvedVideoUrl}
+          src={resolvedVideoUrl}
+          preload="metadata"
+          crossOrigin="anonymous"
+          onEnded={() => {
+            setIsPlaying(false);
+            onLessonEnded?.();
+          }}
+          onError={(e) => {
+            console.error('HTML5 video error event:', e);
+            setHasError(true);
+          }}
+          onClick={handlePlayPause}
+          className="absolute inset-0 w-full h-full object-contain z-0 bg-black cursor-pointer"
+          playsInline
+        />
+      )}
+
+      {/* 5. UNIFIED PURPLE PLAY BUTTON & OVERLAYS (FOR YOUTUBE, VIMEO & HTML5) */}
+      {isVideoAvailable && (
+        <>
+          {/* Dark Overlay Gradient on Hover or Paused */}
+          <div
+            onClick={handlePlayPause}
+            className={`absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-slate-950/40 cursor-pointer transition-opacity duration-300 z-10 ${
+              isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'
+            }`}
+          />
+
+          {/* Center Unified Purple Circular Play Button */}
+          <div
+            onClick={handlePlayPause}
+            className={`absolute inset-0 z-20 flex items-center justify-center cursor-pointer transition-opacity duration-300 ${
+              isPlaying ? 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto' : 'opacity-100'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePlayPause();
+              }}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-brand-600/90 text-white flex items-center justify-center shadow-xl shadow-brand-600/40 hover:scale-110 hover:bg-brand-500 transition-all duration-300 backdrop-blur-sm group-hover:ring-8 ring-brand-500/20"
+              aria-label={isPlaying ? 'Pause Video' : 'Play Video'}
+            >
+              {isPlaying ? (
+                <FiPause className="w-8 h-8 sm:w-10 sm:h-10" />
+              ) : (
+                <FiPlay className="w-8 h-8 sm:w-10 sm:h-10 ml-1 fill-white" />
+              )}
+            </button>
+          </div>
+
+          {/* Bottom Interactive Playback Controls Bar */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 p-4 space-y-2 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            {/* Progress Timeline Scrubber */}
+            <div
+              onClick={handleSeek}
+              className="relative w-full h-2 bg-white/20 hover:h-3 rounded-full cursor-pointer transition-all"
+            >
+              <div
+                className="h-full bg-brand-500 rounded-full relative"
+                style={{ width: `${progressPercent}%` }}
+              >
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-white text-xs pt-1">
+              {/* Left Controls */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handlePlayPause}
+                  className="hover:text-brand-400 transition-colors p-1"
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <FiPause className="w-4 h-4" /> : <FiPlay className="w-4 h-4" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSkip(-10)}
+                  className="hover:text-brand-400 transition-colors p-1"
+                  title="Rewind 10s"
+                >
+                  <FiRotateCcw className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSkip(10)}
+                  className="hover:text-brand-400 transition-colors p-1"
+                  title="Forward 10s"
+                >
+                  <FiRotateCw className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleVolumeToggle}
+                  className="hover:text-brand-400 transition-colors p-1"
+                  aria-label={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <FiVolumeX className="w-4 h-4 text-red-400" /> : <FiVolume2 className="w-4 h-4" />}
+                </button>
+
+                <span className="font-mono text-[11px] text-white/80">
+                  {currentTimeFormatted} / {durationFormatted}
+                </span>
+              </div>
+
+              {/* Right Controls */}
+              <div className="flex items-center gap-3 relative">
+                {/* Playback Speed dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                    className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg transition-colors font-medium text-[11px]"
+                  >
+                    <FiSettings className="w-3.5 h-3.5" />
+                    <span>{playbackSpeed}x</span>
+                  </button>
+
+                  {showSpeedMenu && (
+                    <div className="absolute right-0 bottom-8 bg-slate-900 border border-slate-700 rounded-xl p-1.5 shadow-xl text-xs space-y-0.5 z-30 w-24">
+                      {speeds.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => handleSpeedSelect(s)}
+                          className={`w-full px-2.5 py-1 text-left rounded-lg flex items-center justify-between hover:bg-slate-800 ${
+                            playbackSpeed === s ? 'text-brand-400 font-bold' : 'text-slate-300'
+                          }`}
+                        >
+                          <span>{s}x</span>
+                          {playbackSpeed === s && <FiCheck className="w-3 h-3" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Fullscreen button */}
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="hover:text-brand-400 transition-colors p-1"
+                  title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+                  aria-label="Toggle Fullscreen"
+                >
+                  <FiMaximize className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 6. RESOLVING STORAGE URL LOADING STATE */}
+      {isResolvingUrl && (
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-3">
+          <FiLoader className="w-8 h-8 text-brand-500 animate-spin" />
+          <span className="font-semibold text-slate-300 text-sm">Preparing video stream...</span>
+        </div>
+      )}
+
+      {/* 7. STORAGE RESOLUTION FAILED */}
+      {resolutionFailed && (
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-2">
+          <FiAlertCircle className="w-10 h-10 text-amber-500 mb-1" />
+          <span className="font-bold text-slate-200 text-sm">Unable to load this video.</span>
+          <p className="text-slate-400 max-w-sm text-xs">
+            The storage asset could not be accessed from the cloud repository.
+          </p>
+        </div>
+      )}
+
+      {/* 8. MISSING VIDEO URL EMPTY STATE */}
+      {source.type === 'empty' && (
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-2">
+          <FiVideoOff className="w-10 h-10 text-slate-500 mb-1" />
+          <span className="font-bold text-slate-200 text-sm">Video URL is not available for this lesson.</span>
+          <p className="text-slate-400 max-w-sm text-xs">
+            The instructor has not attached a video stream for this lesson yet. Please check the PDF Notes or Text Reading tab.
+          </p>
+        </div>
+      )}
+
+      {/* 9. INVALID URL ERROR STATE */}
+      {source.type === 'invalid' && (
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-2">
+          <FiAlertCircle className="w-10 h-10 text-amber-500 mb-1" />
+          <span className="font-bold text-slate-200 text-sm">Invalid video URL format.</span>
+          <p className="text-slate-400 max-w-sm text-xs font-mono break-all">
+            {lesson?.videoUrl || 'Unable to parse stream destination'}
+          </p>
+        </div>
+      )}
+
+      {/* 10. PLAYBACK ERROR ON DIRECT/STORAGE VIDEO */}
+      {hasError && (
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-2">
+          <FiAlertCircle className="w-10 h-10 text-rose-500 mb-1" />
+          <span className="font-bold text-slate-200 text-sm">Unable to play this video.</span>
+          <p className="text-slate-400 max-w-sm text-xs">
+            The video source could not be loaded or the format is not supported by your browser.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  if (!showDetailsBanner) {
+    return videoPlayerCanvas;
+  }
+
   return (
     <div className="space-y-6">
-      {/* Video Container Canvas */}
-      <div
-        ref={containerRef}
-        className="relative group w-full aspect-video rounded-2xl overflow-hidden bg-slate-950 shadow-2xl border border-slate-800 flex flex-col justify-between"
-      >
-        {/* 1. YOUTUBE VIDEO CANVAS WITH API INTEGRATION */}
-        {source.type === 'youtube' && source.videoId && (
-          <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
-            <div id={ytContainerId} className="w-full h-full pointer-events-none scale-105" />
-
-            {/* Poster Image (shown before playback starts) */}
-            {!isPlaying && progressPercent === 0 && posterUrl && (
-              <img
-                src={posterUrl}
-                alt={lesson?.title || 'Video Lesson'}
-                onError={() => {
-                  if (source.videoId && !posterUrl.includes('hqdefault')) {
-                    setPosterUrl(`https://img.youtube.com/vi/${source.videoId}/hqdefault.jpg`);
-                  }
-                }}
-                className="absolute inset-0 w-full h-full object-cover z-5"
-              />
-            )}
-          </div>
-        )}
-
-        {/* 2. VIMEO CANVAS WITH VIMEO PLAYER SDK */}
-        {source.type === 'vimeo' && source.videoId && (
-          <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-hidden">
-            <div
-              ref={vimeoContainerRef}
-              className="w-full h-full pointer-events-none scale-105 [&_iframe]:w-full [&_iframe]:h-full [&_iframe]:border-0"
-            />
-
-            {/* Poster Image (shown before playback starts) */}
-            {!isPlaying && progressPercent === 0 && posterUrl && (
-              <img
-                src={posterUrl}
-                alt={lesson?.title || 'Video Lesson'}
-                className="absolute inset-0 w-full h-full object-cover z-5"
-              />
-            )}
-          </div>
-        )}
-
-        {/* 3. DIRECT OR STORAGE RESOLVED HTML5 VIDEO */}
-        {(source.type === 'direct' || source.type === 'storage') && resolvedVideoUrl && !hasError && (
-          <video
-            ref={videoRef}
-            key={resolvedVideoUrl}
-            src={resolvedVideoUrl}
-            preload="metadata"
-            crossOrigin="anonymous"
-            onEnded={() => {
-              setIsPlaying(false);
-              onLessonEnded?.();
-            }}
-            onError={(e) => {
-              console.error('HTML5 video error event:', e);
-              setHasError(true);
-            }}
-            onClick={handlePlayPause}
-            className="absolute inset-0 w-full h-full object-contain z-0 bg-black cursor-pointer"
-            playsInline
-          />
-        )}
-
-        {/* 4. UNIFIED PURPLE PLAY BUTTON & OVERLAYS (FOR YOUTUBE, VIMEO & HTML5) */}
-        {isVideoAvailable && (
-          <>
-            {/* Dark Overlay Gradient on Hover or Paused */}
-            <div
-              onClick={handlePlayPause}
-              className={`absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-slate-950/40 cursor-pointer transition-opacity duration-300 z-10 ${
-                isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'
-              }`}
-            />
-
-            {/* Center Unified Purple Circular Play Button */}
-            <div
-              onClick={handlePlayPause}
-              className={`absolute inset-0 z-20 flex items-center justify-center cursor-pointer transition-opacity duration-300 ${
-                isPlaying ? 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto' : 'opacity-100'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePlayPause();
-                }}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-brand-600/90 text-white flex items-center justify-center shadow-xl shadow-brand-600/40 hover:scale-110 hover:bg-brand-500 transition-all duration-300 backdrop-blur-sm group-hover:ring-8 ring-brand-500/20"
-                aria-label={isPlaying ? 'Pause Video' : 'Play Video'}
-              >
-                {isPlaying ? (
-                  <FiPause className="w-8 h-8 sm:w-10 sm:h-10" />
-                ) : (
-                  <FiPlay className="w-8 h-8 sm:w-10 sm:h-10 ml-1 fill-white" />
-                )}
-              </button>
-            </div>
-
-            {/* Bottom Interactive Playback Controls Bar */}
-            <div className="absolute bottom-0 left-0 right-0 z-20 p-4 space-y-2 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              {/* Progress Timeline Scrubber */}
-              <div
-                onClick={handleSeek}
-                className="relative w-full h-2 bg-white/20 hover:h-3 rounded-full cursor-pointer transition-all"
-              >
-                <div
-                  className="h-full bg-brand-500 rounded-full relative"
-                  style={{ width: `${progressPercent}%` }}
-                >
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform" />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-white text-xs pt-1">
-                {/* Left Controls */}
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handlePlayPause}
-                    className="hover:text-brand-400 transition-colors p-1"
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                  >
-                    {isPlaying ? <FiPause className="w-4 h-4" /> : <FiPlay className="w-4 h-4" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSkip(-10)}
-                    className="hover:text-brand-400 transition-colors p-1"
-                    title="Rewind 10s"
-                  >
-                    <FiRotateCcw className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSkip(10)}
-                    className="hover:text-brand-400 transition-colors p-1"
-                    title="Forward 10s"
-                  >
-                    <FiRotateCw className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleVolumeToggle}
-                    className="hover:text-brand-400 transition-colors p-1"
-                    aria-label={isMuted ? 'Unmute' : 'Mute'}
-                  >
-                    {isMuted ? <FiVolumeX className="w-4 h-4 text-red-400" /> : <FiVolume2 className="w-4 h-4" />}
-                  </button>
-
-                  <span className="font-mono text-[11px] text-white/80">
-                    {currentTimeFormatted} / {durationFormatted}
-                  </span>
-                </div>
-
-                {/* Right Controls */}
-                <div className="flex items-center gap-3 relative">
-                  {/* Playback Speed dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                      className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg transition-colors font-medium text-[11px]"
-                    >
-                      <FiSettings className="w-3.5 h-3.5" />
-                      <span>{playbackSpeed}x</span>
-                    </button>
-
-                    {showSpeedMenu && (
-                      <div className="absolute right-0 bottom-8 bg-slate-900 border border-slate-700 rounded-xl p-1.5 shadow-xl text-xs space-y-0.5 z-30 w-24">
-                        {speeds.map((s) => (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => handleSpeedSelect(s)}
-                            className={`w-full px-2.5 py-1 text-left rounded-lg flex items-center justify-between hover:bg-slate-800 ${
-                              playbackSpeed === s ? 'text-brand-400 font-bold' : 'text-slate-300'
-                            }`}
-                          >
-                            <span>{s}x</span>
-                            {playbackSpeed === s && <FiCheck className="w-3 h-3" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fullscreen button */}
-                  <button
-                    type="button"
-                    onClick={toggleFullscreen}
-                    className="hover:text-brand-400 transition-colors p-1"
-                    title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
-                    aria-label="Toggle Fullscreen"
-                  >
-                    <FiMaximize className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* 5. RESOLVING STORAGE URL LOADING STATE */}
-        {isResolvingUrl && (
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-3">
-            <FiLoader className="w-8 h-8 text-brand-500 animate-spin" />
-            <span className="font-semibold text-slate-300 text-sm">Preparing video stream...</span>
-          </div>
-        )}
-
-        {/* 6. STORAGE RESOLUTION FAILED */}
-        {resolutionFailed && (
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-2">
-            <FiAlertCircle className="w-10 h-10 text-amber-500 mb-1" />
-            <span className="font-bold text-slate-200 text-sm">Unable to load this video.</span>
-            <p className="text-slate-400 max-w-sm text-xs">
-              The storage asset could not be accessed from the cloud repository.
-            </p>
-          </div>
-        )}
-
-        {/* 7. MISSING VIDEO URL EMPTY STATE */}
-        {source.type === 'empty' && (
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-2">
-            <FiVideoOff className="w-10 h-10 text-slate-500 mb-1" />
-            <span className="font-bold text-slate-200 text-sm">Video URL is not available for this lesson.</span>
-            <p className="text-slate-400 max-w-sm text-xs">
-              The instructor has not attached a video stream for this lesson yet. Please check the PDF Notes or Text Reading tab.
-            </p>
-          </div>
-        )}
-
-        {/* 8. INVALID URL ERROR STATE */}
-        {source.type === 'invalid' && (
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-2">
-            <FiAlertCircle className="w-10 h-10 text-amber-500 mb-1" />
-            <span className="font-bold text-slate-200 text-sm">Invalid video URL format.</span>
-            <p className="text-slate-400 max-w-sm text-xs font-mono break-all">
-              {lesson?.videoUrl || 'Unable to parse stream destination'}
-            </p>
-          </div>
-        )}
-
-        {/* 9. PLAYBACK ERROR ON DIRECT/STORAGE VIDEO */}
-        {hasError && (
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center z-30 bg-slate-900 space-y-2">
-            <FiAlertCircle className="w-10 h-10 text-rose-500 mb-1" />
-            <span className="font-bold text-slate-200 text-sm">Unable to play this video.</span>
-            <p className="text-slate-400 max-w-sm text-xs">
-              The video source could not be loaded or the format is not supported by your browser.
-            </p>
-          </div>
-        )}
-      </div>
+      {videoPlayerCanvas}
 
       {/* Lesson Details Banner */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl space-y-3 shadow-xs">

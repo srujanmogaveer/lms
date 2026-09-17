@@ -14,6 +14,8 @@ import {
   FiFolder,
   FiAward,
   FiArrowRight,
+  FiPaperclip,
+  FiEye,
 } from 'react-icons/fi';
 import { BaseModal } from '../dashboard/DashboardModals';
 import { Button } from '../ui/Button';
@@ -389,6 +391,47 @@ export const AssignmentDetailsModal: React.FC<AssignmentDetailsModalProps> = ({
                 </ul>
               )}
             </div>
+
+            {/* Instructor Reference Material / Starter Template */}
+            {assignment.attachmentUrl && (
+              <div className="p-3.5 bg-brand-50/70 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800 rounded-xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-900/60 text-brand-600 dark:text-brand-300 flex items-center justify-center shrink-0">
+                    <FiPaperclip className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Reference Material / Starter Template</div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                      {assignment.attachmentName || 'Reference Material'} {assignment.attachmentSize ? `(${assignment.attachmentSize})` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={assignment.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900/40 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-xs"
+                    title="View file in browser"
+                  >
+                    <FiEye className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <span>View</span>
+                  </a>
+
+                  <a
+                    href={assignment.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                    title="Download attachment file"
+                  >
+                    <FiDownload className="w-3.5 h-3.5" />
+                    <span>Download</span>
+                  </a>
+                </div>
+              </div>
+            )}
 
             {/* Allowed Formats Requirements Info */}
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-600 dark:text-slate-300">

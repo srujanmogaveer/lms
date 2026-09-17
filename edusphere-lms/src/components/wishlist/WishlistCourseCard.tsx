@@ -13,6 +13,7 @@ import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import type { Course } from '../../types';
+import { formatCourseDurationShort } from '../../utils/formatters';
 
 interface WishlistCourseCardProps {
   course: Course;
@@ -97,7 +98,7 @@ export const WishlistCourseCard: React.FC<WishlistCourseCardProps> = ({
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
-                  <FiClock className="w-3.5 h-3.5" /> {course.durationHours}h
+                  <FiClock className="w-3.5 h-3.5" /> {formatCourseDurationShort(course.durationHours)}
                 </span>
               </div>
             </div>
@@ -210,7 +211,7 @@ export const WishlistCourseCard: React.FC<WishlistCourseCardProps> = ({
           </span>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <FiClock className="w-3.5 h-3.5" /> {course.durationHours}h
+              <FiClock className="w-3.5 h-3.5" /> {formatCourseDurationShort(course.durationHours)}
             </span>
             <span className="flex items-center gap-1">
               <FiBookOpen className="w-3.5 h-3.5" /> {course.lessonsCount} lessons

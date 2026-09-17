@@ -18,6 +18,10 @@ export interface BackendAssignment {
   maxScore: number;
   passingScore: number;
   maxAttempts: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: string;
+  attachmentType?: string;
   status: AssignmentStatus;
   position: number;
   submissionsCount?: number;
@@ -63,6 +67,10 @@ export interface CreateAssignmentPayload {
   maxScore: number;
   passingScore?: number;
   maxAttempts?: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: string;
+  attachmentType?: string;
   status?: AssignmentStatus;
   position?: number;
 }
@@ -77,6 +85,10 @@ export interface UpdateAssignmentPayload {
   maxScore?: number;
   passingScore?: number;
   maxAttempts?: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: string;
+  attachmentType?: string;
   status?: AssignmentStatus;
   position?: number;
 }
@@ -89,8 +101,19 @@ export interface GradeSubmissionPayload {
 
 // In-memory cache for course assignments
 const courseAssignmentsCache = new Map<string, BackendAssignment[]>();
+const studentEnrolledAssignmentsCache = new Map<string, any[]>();
 
 export const assignmentService = {
+  // Sync memory cache getter for student enrolled assignments
+  getCachedStudentEnrolledAssignments: (courseId?: string): any[] | null => {
+    const key = courseId || 'all';
+    return studentEnrolledAssignmentsCache.get(key) || null;
+  },
+
+  clearStudentAssignmentsCache: (): void => {
+    studentEnrolledAssignmentsCache.clear();
+  },
+
   // Sync memory cache getter
   getCachedInstructorAssignments: (courseId: string): BackendAssignment[] | null => {
     return courseAssignmentsCache.get(courseId) || null;
@@ -206,7 +229,11 @@ export const assignmentService = {
   // Student: Get enrolled assignments with live submission statuses
   getStudentEnrolledAssignments: async (courseId?: string): Promise<ApiResponse<any[]>> => {
     const query = courseId ? `?courseId=${encodeURIComponent(courseId)}` : '';
-    return api.get<any[]>(`/student/assignments${query}`);
+    const res = await api.get<any[]>(`/student/assignments${query}`);
+    if (res.success && Array.isArray(res.data)) {
+      studentEnrolledAssignmentsCache.set(courseId || 'all', res.data);
+    }
+    return res;
   },
 
   // Student: Get course assignments

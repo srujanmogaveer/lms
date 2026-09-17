@@ -49,11 +49,18 @@ export const QuizResultScreen: React.FC<QuizResultScreenProps> = ({
 
   if (answeredQuestions.length > 0 && quiz.lastScore === undefined) {
     const correctCount = questionsResult.filter((q) => {
+      if (q.isAnswerCorrect !== undefined) return q.isAnswerCorrect;
       if (Array.isArray(q.userSelectedOptionId)) {
-        return q.userSelectedOptionId.length > 0;
+        const selected = q.userSelectedOptionId as string[];
+        const correctIds = Array.isArray(q.correctOptionId)
+          ? (q.correctOptionId as string[])
+          : q.options.filter((o) => o.isCorrect).map((o) => o.id);
+        return correctIds.length > 0
+          ? selected.length === correctIds.length && selected.every((id) => correctIds.includes(id))
+          : selected.length > 0;
       }
       return (
-        (q.correctOptionId && q.userSelectedOptionId === q.correctOptionId) ||
+        (q.correctOptionId && (q.userSelectedOptionId === q.correctOptionId || (Array.isArray(q.correctOptionId) && (q.correctOptionId as string[]).includes(q.userSelectedOptionId)))) ||
         (q.correctAnswer && String(q.userSelectedOptionId).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase())
       );
     }).length;
@@ -304,14 +311,48 @@ export const QuizResultScreen: React.FC<QuizResultScreenProps> = ({
               }
 
               // Resolve official correct answer
-              const correctOpt = q.options.find((opt) => opt.id === q.correctOptionId || opt.text === q.correctOptionId || opt.isCorrect);
-              const correctText = correctOpt ? correctOpt.text : q.correctAnswer ? String(q.correctAnswer) : q.correctOptionId ? String(q.correctOptionId) : null;
+              let correctText = '';
+              if (Array.isArray(q.correctOptionId) && q.correctOptionId.length > 0) {
+                const correctList = q.options.filter((opt) =>
+                  (q.correctOptionId as string[]).includes(opt.id) || (q.correctOptionId as string[]).includes(opt.text)
+                );
+                correctText = correctList.length > 0 ? correctList.map((opt) => opt.text).join(', ') : (q.correctAnswer ? String(q.correctAnswer) : '');
+              } else if (q.correctAnswer) {
+                correctText = String(q.correctAnswer);
+              } else {
+                const multiCorrect = q.options.filter((opt) => opt.isCorrect);
+                if (multiCorrect.length > 0) {
+                  correctText = multiCorrect.map((opt) => opt.text).join(', ');
+                } else {
+                  const singleOpt = q.options.find((opt) => opt.id === q.correctOptionId || opt.text === q.correctOptionId);
+                  correctText = singleOpt ? singleOpt.text : (q.correctOptionId ? String(q.correctOptionId) : 'See question explanation');
+                }
+              }
 
               // Determine correctness
-              const isCorrect = q.userSelectedOptionId !== undefined && (
-                (q.correctOptionId && q.userSelectedOptionId === q.correctOptionId) ||
-                (q.correctAnswer && String(q.userSelectedOptionId).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase())
-              );
+              let isCorrect = q.isAnswerCorrect;
+              if (isCorrect === undefined) {
+                if (Array.isArray(q.userSelectedOptionId)) {
+                  const selected = q.userSelectedOptionId as string[];
+                  const correctIds = Array.isArray(q.correctOptionId)
+                    ? (q.correctOptionId as string[])
+                    : q.options.filter((o) => o.isCorrect).map((o) => o.id);
+                  if (correctIds.length > 0) {
+                    isCorrect =
+                      selected.length === correctIds.length &&
+                      selected.every((id) => correctIds.includes(id));
+                  } else {
+                    isCorrect = selected.length > 0;
+                  }
+                } else {
+                  isCorrect =
+                    q.userSelectedOptionId !== undefined &&
+                    ((q.correctOptionId && (q.userSelectedOptionId === q.correctOptionId || (Array.isArray(q.correctOptionId) && (q.correctOptionId as string[]).includes(q.userSelectedOptionId)))) ||
+                      (q.correctAnswer &&
+                        String(q.userSelectedOptionId).trim().toLowerCase() ===
+                          String(q.correctAnswer).trim().toLowerCase()));
+                }
+              }
 
               return (
                 <div

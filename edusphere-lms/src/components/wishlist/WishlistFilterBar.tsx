@@ -187,9 +187,9 @@ export const WishlistFilterBar: React.FC<WishlistFilterBarProps> = ({
             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
           >
             <option value="all">All Prices</option>
-            <option value="under_50">Under $50</option>
-            <option value="50_to_80">$50 - $80</option>
-            <option value="over_80">$80+</option>
+            <option value="under_1000">Under ₹1,000</option>
+            <option value="1000_to_3000">₹1,000 - ₹3,000</option>
+            <option value="over_3000">₹3,000+</option>
           </select>
         </div>
 

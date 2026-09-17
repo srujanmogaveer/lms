@@ -42,9 +42,67 @@ export class AssignmentService {
   }
 
   /**
+   * Helper to parse attachment metadata from instructions/description or DB columns
+   */
+  public static parseAttachmentMeta(row: any): {
+    cleanInstructions: string;
+    attachmentUrl?: string;
+    attachmentName?: string;
+    attachmentSize?: string;
+    attachmentType?: string;
+  } {
+    let cleanInstructions = row.instructions || '';
+    let attachmentUrl = row.attachment_url || undefined;
+    let attachmentName = row.attachment_name || undefined;
+    let attachmentSize = row.attachment_size || undefined;
+    let attachmentType = row.attachment_type || undefined;
+
+    const match = cleanInstructions.match(/<!-- ATTACHMENT:(\{.*?\}) -->/);
+    if (match && match[1]) {
+      try {
+        const meta = JSON.parse(match[1]);
+        if (!attachmentUrl && meta.url) attachmentUrl = meta.url;
+        if (!attachmentName && meta.name) attachmentName = meta.name;
+        if (!attachmentSize && meta.size) attachmentSize = meta.size;
+        if (!attachmentType && meta.type) attachmentType = meta.type;
+        cleanInstructions = cleanInstructions.replace(/<!-- ATTACHMENT:(\{.*?\}) -->\n?/, '').trim();
+      } catch {
+        // ignore parse error
+      }
+    }
+
+    return {
+      cleanInstructions,
+      attachmentUrl,
+      attachmentName,
+      attachmentSize,
+      attachmentType,
+    };
+  }
+
+  public static packInstructionsWithAttachment(
+    instructions: string,
+    attachment?: { url?: string; name?: string; size?: string; type?: string }
+  ): string {
+    let cleaned = (instructions || '').replace(/<!-- ATTACHMENT:(\{.*?\}) -->\n?/, '').trim();
+    if (attachment && attachment.url) {
+      const metaStr = JSON.stringify({
+        url: attachment.url,
+        name: attachment.name || 'Attachment',
+        size: attachment.size || '',
+        type: attachment.type || '',
+      });
+      return `${cleaned}\n<!-- ATTACHMENT:${metaStr} -->`;
+    }
+    return cleaned;
+  }
+
+  /**
    * Helper to format DB assignment row
    */
   private formatAssignment(row: any, submissionsCount = 0, gradedCount = 0, pendingCount = 0): Assignment {
+    const attMeta = AssignmentService.parseAttachmentMeta(row);
+
     return {
       id: row.id,
       courseId: row.course_id,
@@ -55,11 +113,15 @@ export class AssignmentService {
       lessonTitle: row.lessons?.title || undefined,
       title: row.title,
       description: row.description || '',
-      instructions: row.instructions || '',
+      instructions: attMeta.cleanInstructions,
       dueDays: Number(row.due_days) || 0,
       maxScore: Number(row.max_score) || 100,
       passingScore: Number(row.passing_score) || 60,
       maxAttempts: row.max_attempts !== undefined && row.max_attempts !== null ? Number(row.max_attempts) : 3,
+      attachmentUrl: attMeta.attachmentUrl,
+      attachmentName: attMeta.attachmentName,
+      attachmentSize: attMeta.attachmentSize,
+      attachmentType: attMeta.attachmentType,
       status: row.status || 'Published',
       position: Number(row.position) || 1,
       submissionsCount,
@@ -313,13 +375,25 @@ export class AssignmentService {
       position = (lastItem?.position || 0) + 1;
     }
 
+    const packedInstructions = AssignmentService.packInstructionsWithAttachment(
+      dto.instructions || '',
+      dto.attachmentUrl
+        ? {
+            url: dto.attachmentUrl,
+            name: dto.attachmentName,
+            size: dto.attachmentSize,
+            type: dto.attachmentType,
+          }
+        : undefined
+    );
+
     const payload = {
       course_id: courseId,
       module_id: dto.moduleId || null,
       lesson_id: dto.lessonId || null,
       title: dto.title.trim(),
       description: dto.description || '',
-      instructions: dto.instructions || '',
+      instructions: packedInstructions,
       due_days: dto.dueDays !== undefined ? dto.dueDays : 7,
       max_score: dto.maxScore || 100,
       passing_score: dto.passingScore !== undefined ? dto.passingScore : 60,
@@ -411,7 +485,27 @@ export class AssignmentService {
 
     if (dto.title !== undefined) payload.title = dto.title.trim();
     if (dto.description !== undefined) payload.description = dto.description;
-    if (dto.instructions !== undefined) payload.instructions = dto.instructions;
+    
+    if (dto.instructions !== undefined || dto.attachmentUrl !== undefined || dto.attachmentName !== undefined) {
+      const baseInstructions = dto.instructions !== undefined ? dto.instructions : existing.instructions;
+      const targetUrl = dto.attachmentUrl !== undefined ? (dto.attachmentUrl || undefined) : existing.attachmentUrl;
+      const targetName = dto.attachmentName !== undefined ? dto.attachmentName : existing.attachmentName;
+      const targetSize = dto.attachmentSize !== undefined ? dto.attachmentSize : existing.attachmentSize;
+      const targetType = dto.attachmentType !== undefined ? dto.attachmentType : existing.attachmentType;
+
+      payload.instructions = AssignmentService.packInstructionsWithAttachment(
+        baseInstructions || '',
+        targetUrl
+          ? {
+              url: targetUrl,
+              name: targetName,
+              size: targetSize,
+              type: targetType,
+            }
+          : undefined
+      );
+    }
+
     if (dto.moduleId !== undefined) payload.module_id = dto.moduleId || null;
     if (dto.lessonId !== undefined) payload.lesson_id = dto.lessonId || null;
     if (dto.dueDays !== undefined) payload.due_days = dto.dueDays;
@@ -1059,10 +1153,10 @@ export class AssignmentService {
       return [];
     }
 
-    // Filter valid published & approved courses
+    // Filter valid courses
     const validCourses = enrollments
       .map((e: any) => e.courses)
-      .filter((c: any) => c && c.course_status === 'Published' && c.approval_status === 'Approved');
+      .filter((c: any) => Boolean(c));
 
     if (validCourses.length === 0) {
       return [];
@@ -1216,8 +1310,9 @@ export class AssignmentService {
       const isLatestAwaitingGrading = latestSub && (latestSub.status === 'Submitted' || latestSub.status === 'Under Review' || latestSub.score === null);
       const canResubmit = !hasPassedAttempt && !isLatestAwaitingGrading && attemptsUsed < effectiveMaxAttempts;
 
-      const instructionsList: string[] = asg.instructions
-        ? asg.instructions
+      const attMeta = AssignmentService.parseAttachmentMeta(asg);
+      const instructionsList: string[] = attMeta.cleanInstructions
+        ? attMeta.cleanInstructions
             .split('\n')
             .map((s: string) => s.trim())
             .filter((s: string) => s.length > 0)
@@ -1262,6 +1357,10 @@ export class AssignmentService {
         passingMarks,
         status,
         grade,
+        attachmentUrl: attMeta.attachmentUrl,
+        attachmentName: attMeta.attachmentName,
+        attachmentSize: attMeta.attachmentSize,
+        attachmentType: attMeta.attachmentType,
         isLocked: !isLessonsCompleted && asgSubmissions.length === 0,
         lockReason: !isLessonsCompleted && asgSubmissions.length === 0 ? 'Complete all course lessons before submitting this assignment.' : undefined,
         unlockRequirement: `Complete all course lessons (${completedLessons}/${totalLessons} completed)`,

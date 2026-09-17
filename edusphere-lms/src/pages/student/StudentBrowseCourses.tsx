@@ -28,6 +28,7 @@ import { courseService } from '../../services/courseService';
 import { categoryService } from '../../services/categoryService';
 import { enrollmentService } from '../../services/enrollmentService';
 import { wishlistService } from '../../services/wishlistService';
+import { formatCourseDuration } from '../../utils/formatters';
 import { cartService } from '../../services/cartService';
 import { showSuccessAlert, showErrorAlert } from '../../utils/swalAlerts';
 import { useWishlistCart } from '../../contexts/WishlistCartContext';
@@ -62,7 +63,7 @@ export const StudentBrowseCourses: React.FC = () => {
         const [courseRes, catRes, enrRes, wishRes, cartRes] = await Promise.all([
           courseService.getPublicCourses(),
           categoryService.getCategories(true),
-          enrollmentService.getStudentEnrollments().catch(() => ({ success: false, data: [] })),
+          enrollmentService.getStudentEnrollments(true).catch(() => ({ success: false, data: [] })),
           wishlistService.getWishlist().catch(() => ({ success: false, data: [] })),
           cartService.getCart().catch(() => ({ success: false, data: [] })),
         ]);
@@ -157,6 +158,14 @@ export const StudentBrowseCourses: React.FC = () => {
 
       return true;
     }).sort((a, b) => {
+      const aEnrolled = enrolledCourseIdSet.has(a.id);
+      const bEnrolled = enrolledCourseIdSet.has(b.id);
+
+      // Prioritize unpurchased courses at the top, purchased courses below
+      if (!aEnrolled && bEnrolled) return -1;
+      if (aEnrolled && !bEnrolled) return 1;
+
+      // Within the same group, sort by user's selected criteria
       if (sortBy === 'popular') return b.studentsEnrolled - a.studentsEnrolled;
       if (sortBy === 'rating') return b.rating - a.rating;
       if (sortBy === 'price-low') return (a.discountPrice || a.price) - (b.discountPrice || b.price);
@@ -285,30 +294,30 @@ export const StudentBrowseCourses: React.FC = () => {
             Minimum Rating
           </label>
           {selectedRating > 0 && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50">
-              {selectedRating}★+
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60">
+              Active
             </span>
           )}
         </div>
         <div className="space-y-1.5">
-          {[4.8, 4.5, 4.0].map((stars) => {
+          {[4.5, 4.0, 3.5, 3.0].map((stars) => {
             const isSelected = selectedRating === stars;
             return (
               <button
                 key={stars}
                 onClick={() => {
-                  setSelectedRating(selectedRating === stars ? 0 : stars);
+                  setSelectedRating(isSelected ? 0 : stars);
                   setCurrentPage(1);
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 text-left ${
                   isSelected
-                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 font-semibold border border-amber-300/80 dark:border-amber-700/60 shadow-xs'
+                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-semibold border border-amber-200/80 dark:border-amber-800/80 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
                 }`}
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5">
                   <span className="flex items-center text-amber-400">
-                    <FiStar className="w-3.5 h-3.5 fill-amber-400" />
+                    <FiStar className="w-3.5 h-3.5 fill-current" />
                   </span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{stars}</span>
                   <span className="text-slate-400 text-[11px] font-normal">& above</span>
@@ -750,7 +759,7 @@ export const StudentBrowseCourses: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Duration & Lessons:</span>
-                <span className="font-bold">{previewCourse.durationHours} hours ({previewCourse.lessonsCount} lessons)</span>
+                <span className="font-bold">{formatCourseDuration(previewCourse.durationHours)} ({previewCourse.lessonsCount} lessons)</span>
               </div>
               <div className="flex justify-between items-baseline pt-1 border-t border-slate-200 dark:border-slate-700">
                 <span className="text-slate-500 font-bold">Course Price:</span>

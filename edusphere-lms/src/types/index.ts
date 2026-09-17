@@ -121,6 +121,7 @@ export interface Course {
   priceType?: 'Free' | 'Paid' | 'Discounted';
   courseStatus?: string;
   approvalStatus?: string;
+  promoVideoUrl?: string;
 }
 
 export interface Assignment {
@@ -131,6 +132,10 @@ export interface Assignment {
   description: string;
   totalPoints: number;
   passingMarks?: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: string;
+  attachmentType?: string;
   status: 'pending' | 'submitted' | 'under_review' | 'graded';
   grade?: number;
   isLocked?: boolean;
@@ -244,10 +249,11 @@ export interface QuizQuestion {
   };
   options: QuizOption[];
   points?: number;
-  correctOptionId: string;
+  correctOptionId: string | string[];
   correctAnswer?: any;
   userSelectedOptionId?: string | string[];
   isMarkedForReview?: boolean;
+  isAnswerCorrect?: boolean;
 }
 
 

@@ -7,7 +7,6 @@ import {
   FiX,
   FiClock,
   FiCalendar,
-  FiExternalLink,
   FiSlash,
   FiCopy,
   FiCheck,
@@ -670,13 +669,13 @@ export const AdminLiveClassManagement: React.FC = () => {
                     )}
                   </button>
                   <a
-                    href={viewingClass.meetingUrl}
+                    href={`/instructor/live/room/${viewingClass.id}`}
                     target="_blank"
                     rel="noreferrer"
                     className="p-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors"
-                    title="Open Link"
+                    title="Open In-App Room"
                   >
-                    <FiExternalLink className="w-3.5 h-3.5" />
+                    <FiVideo className="w-3.5 h-3.5" />
                   </a>
                 </div>
               </div>

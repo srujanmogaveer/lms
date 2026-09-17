@@ -91,6 +91,7 @@ export const authService = {
     qualification?: string;
     experience?: string;
     specialization?: string;
+    category?: string;
     termsAgreed: boolean;
   }): Promise<ApiResponse<AuthSessionData>> => {
     return api.post<AuthSessionData>('/auth/register/instructor', payload);

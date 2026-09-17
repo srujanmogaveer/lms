@@ -15,9 +15,24 @@ export class AdminService {
   /**
    * Helper to format database profile into standard UserProfile interface
    */
-  private formatProfile(row: any, dynamicCoursesCount?: number): UserProfile {
+  private formatProfile(
+    row: any,
+    dynamicCoursesCount?: number,
+    dynamicEnrollmentCounts?: { enrolled: number; completed: number }
+  ): UserProfile {
     const rawAvatar = row.avatar_url || null;
     const safeAvatar = rawAvatar && !rawAvatar.includes('photo-1534528741775-53994a69daeb') ? rawAvatar : undefined;
+
+    // Parse category and specialization cleanly:
+    let category = row.category || row.raw_user_meta_data?.category;
+    let specialization = row.specialization;
+    if (!category && specialization && specialization.includes('•')) {
+      const parts = specialization.split('•');
+      category = parts[0]?.trim();
+      specialization = parts.slice(1).join('•').trim() || parts[0]?.trim();
+    } else if (!category && specialization && row.role === 'instructor') {
+      category = specialization;
+    }
 
     return {
       id: row.id,
@@ -39,13 +54,23 @@ export class AdminService {
       linkedInUrl: row.linkedin_url,
       personalWebsite: row.personal_website,
       learningStreakDays: row.learning_streak_days ?? 0,
-      enrolledCoursesCount: row.enrolled_courses_count ?? 0,
-      completedCoursesCount: row.completed_courses_count ?? 0,
-      certificatesCount: row.certificates_count ?? 0,
+      enrolledCoursesCount:
+        dynamicEnrollmentCounts !== undefined
+          ? dynamicEnrollmentCounts.enrolled
+          : (row.enrolled_courses_count ?? 0),
+      completedCoursesCount:
+        dynamicEnrollmentCounts !== undefined
+          ? dynamicEnrollmentCounts.completed
+          : (row.completed_courses_count ?? 0),
+      certificatesCount:
+        dynamicEnrollmentCounts !== undefined
+          ? dynamicEnrollmentCounts.completed
+          : (row.certificates_count ?? 0),
       instructorApprovalStatus: row.instructor_approval_status as InstructorApprovalStatus,
       qualification: row.qualification,
       experience: row.experience,
-      specialization: row.specialization,
+      category: category || undefined,
+      specialization: specialization || row.specialization,
       coursesCreatedCount: dynamicCoursesCount !== undefined ? dynamicCoursesCount : (row.courses_created_count ?? 0),
       totalStudents: row.total_students ?? 0,
       instructorRating: row.instructor_rating ? Number(row.instructor_rating) : 5.0,
@@ -101,6 +126,9 @@ export class AdminService {
         admin_permissions,
         theme_preference,
         language_preference,
+        payout_info,
+        notification_preferences,
+        privacy_settings,
         created_at,
         updated_at
       `, { count: 'exact' });
@@ -147,12 +175,41 @@ export class AdminService {
       }
     }
 
+    // Dynamically calculate actual enrollments & completions for students from enrollments table
+    const studentIds = (data || [])
+      .filter((r) => r.role === 'student')
+      .map((r) => r.id);
+
+    const enrollmentsCountMap: Record<string, { enrolled: number; completed: number }> = {};
+    if (studentIds.length > 0) {
+      const { data: enrollmentRows } = await supabaseAdmin
+        .from('enrollments')
+        .select('student_id, status')
+        .in('student_id', studentIds);
+
+      if (enrollmentRows) {
+        enrollmentRows.forEach((e: any) => {
+          if (!enrollmentsCountMap[e.student_id]) {
+            enrollmentsCountMap[e.student_id] = { enrolled: 0, completed: 0 };
+          }
+          enrollmentsCountMap[e.student_id].enrolled += 1;
+          if (e.status === 'Completed') {
+            enrollmentsCountMap[e.student_id].completed += 1;
+          }
+        });
+      }
+    }
+
     const total = count || 0;
     const totalPages = Math.ceil(total / limit);
 
     return {
       users: (data || []).map((row) =>
-        this.formatProfile(row, coursesCountMap[row.id] !== undefined ? coursesCountMap[row.id] : undefined)
+        this.formatProfile(
+          row,
+          coursesCountMap[row.id] !== undefined ? coursesCountMap[row.id] : undefined,
+          enrollmentsCountMap[row.id] !== undefined ? enrollmentsCountMap[row.id] : undefined
+        )
       ),
       pagination: {
         total,
@@ -181,15 +238,53 @@ export class AdminService {
     }
 
     let coursesCount: number | undefined = undefined;
+    let instructorCourses: any[] = [];
     if (data.role === 'instructor' || data.instructor_approval_status) {
-      const { count: cCount } = await supabaseAdmin
+      const { data: cData, count: cCount } = await supabaseAdmin
         .from('courses')
-        .select('*', { count: 'exact', head: true })
-        .eq('instructor_id', userId);
-      coursesCount = cCount || 0;
+        .select('id, title, thumbnail, course_status, approval_status, price, discount_price, students_enrolled', { count: 'exact' })
+        .eq('instructor_id', userId)
+        .order('created_at', { ascending: false });
+      coursesCount = cCount || (cData ? cData.length : 0);
+      instructorCourses = (cData || []).map((c: any) => {
+        const rawStatus = (c.course_status || c.approval_status || '').toLowerCase();
+        const normalizedStatus: 'Published' | 'Draft' | 'Pending Approval' =
+          rawStatus === 'published' || rawStatus === 'approved'
+            ? 'Published'
+            : rawStatus === 'under_review' || rawStatus === 'pending_approval' || rawStatus === 'pending'
+              ? 'Pending Approval'
+              : 'Draft';
+        return {
+          id: c.id,
+          title: c.title,
+          thumbnail: c.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=600',
+          status: normalizedStatus,
+          studentsEnrolled: c.students_enrolled || 0,
+          revenueINR: (c.students_enrolled || 0) * (c.discount_price ?? c.price ?? 0),
+        };
+      });
     }
 
-    return this.formatProfile(data, coursesCount);
+    let dynamicEnrollments: { enrolled: number; completed: number } | undefined = undefined;
+    if (data.role === 'student') {
+      const { data: enrollmentRows } = await supabaseAdmin
+        .from('enrollments')
+        .select('status')
+        .eq('student_id', userId);
+
+      if (enrollmentRows && enrollmentRows.length > 0) {
+        dynamicEnrollments = {
+          enrolled: enrollmentRows.length,
+          completed: enrollmentRows.filter((e: any) => e.status === 'Completed').length,
+        };
+      }
+    }
+
+    const profile = this.formatProfile(data, coursesCount, dynamicEnrollments);
+    if (instructorCourses.length > 0) {
+      profile.coursesCreated = instructorCourses;
+    }
+    return profile;
   }
 
   /**

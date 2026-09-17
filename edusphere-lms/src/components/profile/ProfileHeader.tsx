@@ -7,6 +7,7 @@ import {
   FiZap,
   FiShield,
   FiAward,
+  FiCreditCard,
 } from 'react-icons/fi';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -90,16 +91,28 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Quick Action */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate('/student/certificates')}
-          className="text-xs flex items-center gap-1.5 self-start md:self-auto border-amber-300 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-        >
-          <FiAward className="w-4 h-4 text-amber-500 fill-amber-500" />
-          <span>My Certificates</span>
-        </Button>
+        {/* Right: Quick Actions */}
+        <div className="flex items-center gap-2 flex-wrap self-start md:self-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/student/payments')}
+            className="text-xs flex items-center gap-1.5 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 font-bold"
+          >
+            <FiCreditCard className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span>Payment History</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/student/certificates')}
+            className="text-xs flex items-center gap-1.5 border-amber-300 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+          >
+            <FiAward className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span>My Certificates</span>
+          </Button>
+        </div>
       </div>
 
       {/* Tabs Navigation Bar */}

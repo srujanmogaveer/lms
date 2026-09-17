@@ -26,7 +26,7 @@ export const StudentAnnouncements: React.FC = () => {
 
   // Core Data State
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Active Details Modal Control
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<AnnouncementItem | null>(null);
@@ -38,20 +38,20 @@ export const StudentAnnouncements: React.FC = () => {
   const [selectedReadFilter, setSelectedReadFilter] = useState<string>('all');
 
   // Load announcements from live backend
-  const loadAnnouncements = useCallback(async () => {
+  const loadAnnouncements = useCallback(async (showLoader = false) => {
     try {
-      setIsLoading(true);
+      if (showLoader) setIsLoading(true);
       const list = await announcementService.getAnnouncements();
       setAnnouncements(list);
     } catch (err: any) {
-      showErrorAlert('Load Failed', err.message || 'Unable to load announcements.');
+      // Safe fallback
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadAnnouncements();
+    loadAnnouncements(false);
   }, [loadAnnouncements]);
 
   // Unique Courses List from actual announcements
@@ -155,7 +155,7 @@ export const StudentAnnouncements: React.FC = () => {
         <Button
           variant="outline"
           size="md"
-          onClick={loadAnnouncements}
+          onClick={() => loadAnnouncements(true)}
           disabled={isLoading}
           className="flex items-center gap-1.5 self-start sm:self-auto"
         >

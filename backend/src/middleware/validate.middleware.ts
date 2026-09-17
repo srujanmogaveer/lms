@@ -27,7 +27,8 @@ export const validateRequest = (schema: RequestValidationSchema) => {
           field: err.path.join('.'),
           message: err.message,
         }));
-        next(ApiError.badRequest('Validation failed', formattedErrors));
+        const detailedMessage = formattedErrors.map((e) => e.message).join('. ');
+        next(ApiError.badRequest(detailedMessage || 'Validation failed', formattedErrors));
         return;
       }
       next(error);

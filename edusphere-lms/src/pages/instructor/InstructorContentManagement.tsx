@@ -40,6 +40,8 @@ import {
   type CurriculumLesson,
   type LessonType,
 } from '../../data/curriculumData';
+import type { PlayerLesson } from '../../types';
+import { VideoLessonPlayer } from '../../components/player/VideoLessonPlayer';
 import { curriculumService } from '../../services/curriculumService';
 import type { BackendModule } from '../../services/curriculumService';
 import { courseService } from '../../services/courseService';
@@ -133,7 +135,7 @@ export const InstructorContentManagement: React.FC = () => {
 
   const [lessonTextContent, setLessonTextContent] = useState<string>('');
   const [lessonShortDescription, setLessonShortDescription] = useState<string>('');
-  const [lessonDurationMinutes, setLessonDurationMinutes] = useState<number>(10);
+  const [lessonDurationMinutes, setLessonDurationMinutes] = useState<number | string>(10);
 
   // Uploading and drag-drop state
   const [isUploadingFile, setIsUploadingFile] = useState<boolean>(false);
@@ -142,7 +144,7 @@ export const InstructorContentManagement: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
 
   // Video playback & status state
-  const [videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null);
+  const [_videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -291,6 +293,19 @@ export const InstructorContentManagement: React.FC = () => {
       }))
     );
   }, [modules]);
+
+  // Construct PlayerLesson object for student VideoLessonPlayer preview
+  const previewPlayerLesson: PlayerLesson = useMemo(() => ({
+    id: activeLesson?.id || 'preview-lesson',
+    moduleId: activeModule?.id || '',
+    moduleTitle: activeModule?.title || '',
+    title: activeLesson?.title || 'Lesson Video',
+    duration: `${Number(lessonDurationMinutes) > 0 ? lessonDurationMinutes : activeLesson?.durationMinutes || 10}:00`,
+    type: 'video',
+    isCompleted: false,
+    isBookmarked: false,
+    videoUrl: lessonVideoUrl,
+  }), [activeLesson?.id, activeLesson?.title, activeLesson?.durationMinutes, activeModule?.id, activeModule?.title, lessonDurationMinutes, lessonVideoUrl]);
 
   // Determine if a lesson has complete/ready content (checks active live state for selected lesson)
   const isLessonConfigured = useCallback(
@@ -465,15 +480,15 @@ export const InstructorContentManagement: React.FC = () => {
     if (!trimmed) return '';
 
     // If it's already an embed URL
-    if (trimmed.includes('youtube.com/embed/')) {
-      const idPart = trimmed.split('embed/')[1]?.split('?')[0];
-      return `https://www.youtube.com/embed/${idPart}?rel=0`;
+    if (trimmed.includes('youtube.com/embed/') || trimmed.includes('youtube-nocookie.com/embed/')) {
+      const idPart = (trimmed.split('embed/')[1] || '').split('?')[0];
+      return `https://www.youtube-nocookie.com/embed/${idPart}?rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
     }
 
     // YouTube Shorts: https://www.youtube.com/shorts/VIDEO_ID
     if (trimmed.includes('youtube.com/shorts/')) {
       const vId = trimmed.split('shorts/')[1]?.split('?')[0]?.split('&')[0];
-      if (vId) return `https://www.youtube.com/embed/${vId}?rel=0`;
+      if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
     }
 
     // Standard YouTube watch URL: https://www.youtube.com/watch?v=VIDEO_ID
@@ -481,23 +496,23 @@ export const InstructorContentManagement: React.FC = () => {
       try {
         const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
         const vId = urlObj.searchParams.get('v');
-        if (vId) return `https://www.youtube.com/embed/${vId}?rel=0`;
+        if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
       } catch {
         const vId = trimmed.split('watch?v=')[1]?.split('&')[0];
-        if (vId) return `https://www.youtube.com/embed/${vId}?rel=0`;
+        if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
       }
     }
 
     // Shortened YouTube URL: https://youtu.be/VIDEO_ID
     if (trimmed.includes('youtu.be/')) {
       const vId = trimmed.split('youtu.be/')[1]?.split('?')[0]?.split('&')[0];
-      if (vId) return `https://www.youtube.com/embed/${vId}?rel=0`;
+      if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
     }
 
     // YouTube live / other: youtube.com/live/VIDEO_ID
     if (trimmed.includes('youtube.com/live/')) {
       const vId = trimmed.split('live/')[1]?.split('?')[0]?.split('&')[0];
-      if (vId) return `https://www.youtube.com/embed/${vId}?rel=0`;
+      if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`;
     }
 
     // Vimeo URL (must use player.vimeo.com/video/{id})
@@ -514,6 +529,33 @@ export const InstructorContentManagement: React.FC = () => {
       const parts = trimmed.split('vimeo.com/')[1]?.split('?')[0]?.split('/');
       const vId = parts?.find((p) => /^[0-9]+$/.test(p));
       if (vId) return `https://player.vimeo.com/video/${vId}`;
+    }
+
+    // Google Drive URL (convert /view, /open?id= into /preview for embedding)
+    if (trimmed.includes('drive.google.com') || trimmed.includes('docs.google.com')) {
+      if (trimmed.includes('/file/d/')) {
+        const fileId = trimmed.split('/file/d/')[1]?.split('/')[0]?.split('?')[0];
+        if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
+      } else if (trimmed.includes('id=')) {
+        try {
+          const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+          const fileId = urlObj.searchParams.get('id');
+          if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
+        } catch {}
+      }
+    }
+
+    // Dailymotion URL (convert /video/ID or dai.ly/ID into /embed/video/ID)
+    if (trimmed.includes('dailymotion.com') || trimmed.includes('dai.ly')) {
+      if (trimmed.includes('dai.ly/')) {
+        const vId = trimmed.split('dai.ly/')[1]?.split('?')[0]?.split('/')[0];
+        if (vId) return `https://www.dailymotion.com/embed/video/${vId}?autoplay=0`;
+      } else if (trimmed.includes('/video/')) {
+        const vId = trimmed.split('/video/')[1]?.split('?')[0]?.split('/')[0];
+        if (vId) return `https://www.dailymotion.com/embed/video/${vId}?autoplay=0`;
+      } else if (trimmed.includes('/embed/video/')) {
+        return trimmed;
+      }
     }
 
     return trimmed;
@@ -1740,60 +1782,7 @@ export const InstructorContentManagement: React.FC = () => {
                     <div className="space-y-6">
                       <div className="relative group w-full aspect-video rounded-3xl overflow-hidden bg-slate-950 shadow-2xl border border-slate-800 flex flex-col justify-between">
                         {lessonVideoUrl ? (
-                          lessonVideoUrl.includes('youtube.com') ||
-                          lessonVideoUrl.includes('youtu.be') ||
-                          lessonVideoUrl.includes('vimeo.com') ? (
-                            <iframe
-                              key={lessonVideoUrl}
-                              src={formatVideoEmbedUrl(lessonVideoUrl)}
-                              title={activeLesson.title}
-                              className="absolute inset-0 w-full h-full border-0 z-0"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
-                          ) : videoPlaybackError ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-rose-400 text-xs p-6 text-center">
-                              <FiAlertCircle className="w-10 h-10 text-rose-500 mb-2" />
-                              <span className="font-bold text-rose-300 text-sm">Video failed to load</span>
-                              <span className="text-slate-400 mt-1 max-w-sm">
-                                {videoPlaybackError}
-                              </span>
-                            </div>
-                          ) : (
-                            <video
-                              key={lessonVideoUrl}
-                              src={lessonVideoUrl}
-                              controls
-                              playsInline
-                              preload="metadata"
-                              className="w-full h-full object-contain"
-                              onLoadedMetadata={() => setVideoPlaybackError(null)}
-                              onCanPlay={() => setVideoPlaybackError(null)}
-                              onError={(e) => {
-                                const target = e.currentTarget;
-                                const code = target.error?.code;
-                                const rawMessage = target.error?.message;
-                                let detailedError = `Failed to load video (Code ${code || 'Unknown'}).`;
-
-                                if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
-                                  detailedError = 'The video format is unsupported, or the storage resource is not accessible.';
-                                } else if (code === MediaError.MEDIA_ERR_DECODE) {
-                                  detailedError = 'The media playback was aborted due to a corruption problem or unsupported codec.';
-                                } else if (code === MediaError.MEDIA_ERR_NETWORK) {
-                                  detailedError = 'A network error caused the video download to fail.';
-                                }
-
-                                if (rawMessage) detailedError += ` Detail: ${rawMessage}`;
-                                console.error('HTML5 Video Error:', {
-                                  url: lessonVideoUrl,
-                                  error: target.error,
-                                });
-                                setVideoPlaybackError(detailedError);
-                              }}
-                            >
-                              Your browser does not support HTML5 video streaming.
-                            </video>
-                          )
+                          <VideoLessonPlayer key={lessonVideoUrl} lesson={previewPlayerLesson} />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center">
                             <FiVideo className="w-12 h-12 text-slate-600 mb-2" />
@@ -1820,7 +1809,7 @@ export const InstructorContentManagement: React.FC = () => {
                             <FiClock className="w-4 h-4 text-brand-500" />
                             <span>
                               Duration:{' '}
-                              {lessonDurationMinutes > 0
+                              {Number(lessonDurationMinutes) > 0
                                 ? lessonDurationMinutes
                                 : activeLesson.durationMinutes > 0
                                 ? activeLesson.durationMinutes
@@ -2112,11 +2101,24 @@ export const InstructorContentManagement: React.FC = () => {
                           type="number"
                           min="1"
                           max="600"
-                          value={lessonDurationMinutes}
+                          value={lessonDurationMinutes === '' ? '' : lessonDurationMinutes}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = Math.max(1, parseInt(e.target.value, 10) || 1);
-                            setLessonDurationMinutes(val);
+                            const val = e.target.value;
+                            if (val === '') {
+                              setLessonDurationMinutes('');
+                            } else {
+                              const parsed = parseInt(val, 10);
+                              if (!isNaN(parsed) && parsed >= 0) {
+                                setLessonDurationMinutes(parsed);
+                              }
+                            }
                             setHasUnsavedChanges(true);
+                          }}
+                          onBlur={() => {
+                            if (lessonDurationMinutes === '' || Number(lessonDurationMinutes) < 1) {
+                              setLessonDurationMinutes(activeLesson.durationMinutes > 0 ? activeLesson.durationMinutes : 10);
+                            }
                           }}
                           className="w-full px-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                         />
@@ -2155,7 +2157,7 @@ export const InstructorContentManagement: React.FC = () => {
                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                           } disabled:opacity-40 disabled:cursor-not-allowed`}
                         >
-                          <FiLink className="inline w-3 h-3 mr-1" /> Embed Link (YouTube/Vimeo)
+                          <FiLink className="inline w-3 h-3 mr-1" /> URL
                         </button>
                         <button
                           type="button"
@@ -2179,12 +2181,12 @@ export const InstructorContentManagement: React.FC = () => {
                     {contentSource === 'url' && (
                       <div className="space-y-3">
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Video Stream URL (YouTube, Vimeo, Cloudinary, MP4)
+                          Video Stream URL (YouTube, Vimeo, Google Drive, Dailymotion, Cloudinary, MP4)
                         </label>
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+                            placeholder="https://www.youtube.com/... or Google Drive / Vimeo / Dailymotion / MP4 link"
                             value={videoInputUrl}
                             disabled={isLockedCourse}
                             onChange={(e) => {
@@ -2215,7 +2217,7 @@ export const InstructorContentManagement: React.FC = () => {
                           )}
                         </div>
                         <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                          <FiInfo className="w-3.5 h-3.5 text-slate-400" /> Supports YouTube watch/share links, Vimeo player links, and raw MP4 video streams.
+                          <FiInfo className="w-3.5 h-3.5 text-slate-400" /> Supports YouTube, Vimeo, Google Drive (shared with link), Dailymotion, and direct MP4 video streams.
                         </p>
                       </div>
                     )}
@@ -2325,60 +2327,12 @@ export const InstructorContentManagement: React.FC = () => {
                       </div>
                       <div className="aspect-video bg-black rounded-3xl overflow-hidden border border-slate-800 shadow-xl relative">
                         {lessonVideoUrl ? (
-                          lessonVideoUrl.includes('youtube.com') ||
-                          lessonVideoUrl.includes('youtu.be') ||
-                          lessonVideoUrl.includes('vimeo.com') ? (
-                            <iframe
-                              key={lessonVideoUrl}
-                              src={formatVideoEmbedUrl(lessonVideoUrl)}
-                              title={activeLesson.title}
-                              className="w-full h-full border-0"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
-                          ) : videoPlaybackError ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-rose-400 text-xs p-6 text-center">
-                              <FiAlertCircle className="w-10 h-10 text-rose-500 mb-2" />
-                              <span className="font-bold text-rose-300 text-sm">Video failed to load</span>
-                              <span className="text-slate-400 mt-1 max-w-sm">
-                                {videoPlaybackError}
-                              </span>
-                            </div>
-                          ) : (
-                            <video
-                              key={lessonVideoUrl}
-                              src={lessonVideoUrl}
-                              controls
-                              playsInline
-                              preload="metadata"
-                              className="w-full h-full object-contain"
-                              onLoadedMetadata={() => setVideoPlaybackError(null)}
-                              onCanPlay={() => setVideoPlaybackError(null)}
-                              onError={(e) => {
-                                const target = e.currentTarget;
-                                const code = target.error?.code;
-                                const rawMessage = target.error?.message;
-                                let detailedError = `Failed to load video (Code ${code || 'Unknown'}).`;
-
-                                if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
-                                  detailedError = 'The video format is unsupported, or the storage resource is not accessible.';
-                                } else if (code === MediaError.MEDIA_ERR_DECODE) {
-                                  detailedError = 'The media playback was aborted due to a corruption problem or unsupported codec.';
-                                } else if (code === MediaError.MEDIA_ERR_NETWORK) {
-                                  detailedError = 'A network error caused the video download to fail.';
-                                }
-
-                                if (rawMessage) detailedError += ` Detail: ${rawMessage}`;
-                                console.error('HTML5 Video Error:', {
-                                  url: lessonVideoUrl,
-                                  error: target.error,
-                                });
-                                setVideoPlaybackError(detailedError);
-                              }}
-                            >
-                              Your browser does not support HTML5 video streaming.
-                            </video>
-                          )
+                          <VideoLessonPlayer
+                            key={lessonVideoUrl}
+                            lesson={previewPlayerLesson}
+                            showDetailsBanner={false}
+                            className="rounded-3xl border-0 shadow-none"
+                          />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-6 text-center">
                             <FiVideo className="w-10 h-10 text-slate-600 mb-2" />
@@ -2800,7 +2754,7 @@ export const InstructorContentManagement: React.FC = () => {
                       <>
                         <FiClock className="w-3.5 h-3.5 text-brand-500" />
                         <span>
-                          Estimated time: {lessonDurationMinutes > 0 ? lessonDurationMinutes : activeLesson.durationMinutes || 10} minutes
+                          Estimated time: {Number(lessonDurationMinutes) > 0 ? lessonDurationMinutes : activeLesson.durationMinutes || 10} minutes
                         </span>
                       </>
                     )}

@@ -54,8 +54,10 @@ export interface UserProfile {
   instructorApprovalStatus?: InstructorApprovalStatus;
   qualification?: string;
   experience?: string;
+  category?: string;
   specialization?: string;
   coursesCreatedCount?: number;
+  coursesCreated?: any[];
   totalStudents?: number;
   instructorRating?: number;
   adminPermissions?: string[];
@@ -378,6 +380,10 @@ export interface Assignment {
   maxScore: number;
   passingScore: number;
   maxAttempts: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: string;
+  attachmentType?: string;
   status: AssignmentStatus;
   position: number;
   submissionsCount?: number;
@@ -424,6 +430,10 @@ export interface CreateAssignmentDto {
   maxScore?: number;
   passingScore?: number;
   maxAttempts?: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: string;
+  attachmentType?: string;
   status?: AssignmentStatus;
   position?: number;
 }
@@ -438,6 +448,10 @@ export interface UpdateAssignmentDto {
   maxScore?: number;
   passingScore?: number;
   maxAttempts?: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: string;
+  attachmentType?: string;
   status?: AssignmentStatus;
   position?: number;
 }
@@ -1067,6 +1081,19 @@ export interface LiveClassPaginatedResult {
   totalPages: number;
 }
 
+export interface LiveClassJoinResult {
+  id: string;
+  title: string;
+  status: LiveClassStatus;
+  platform: string;
+  meetingUrl: string;
+  meetingId: string;
+  roomName: string;
+  isHost: boolean;
+  token: string;
+  serverUrl: string;
+}
+
 // =============================================================
 // CHAT & MESSAGING TYPES
 // =============================================================
@@ -1429,6 +1456,9 @@ export interface UpdateReviewDto {
   reviewTitle?: string;
   reviewText?: string;
 }
+
+
+
 
 
 

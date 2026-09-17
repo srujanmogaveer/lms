@@ -66,7 +66,24 @@ export class CategoryService {
         return [];
       }
 
-      return (rows || []).map((row) => this.formatCategory(row, 0));
+      // Query real course counts grouped by category_id
+      const { data: courseRows } = await supabaseAdmin
+        .from('courses')
+        .select('category_id');
+
+      const countMap = new Map<string, number>();
+      if (courseRows) {
+        for (const c of courseRows) {
+          if (c.category_id) {
+            countMap.set(c.category_id, (countMap.get(c.category_id) || 0) + 1);
+          }
+        }
+      }
+
+      return (rows || []).map((row) => {
+        const dbCourseCount = countMap.get(row.id) || 0;
+        return this.formatCategory(row, dbCourseCount);
+      });
     } catch (err) {
       logger.error('Failed to get categories:', err);
       return [];

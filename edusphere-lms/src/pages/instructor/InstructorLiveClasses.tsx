@@ -93,10 +93,7 @@ export const InstructorLiveClasses: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     startTime: '16:00',
     endTime: '17:30',
-    platform: 'Google Meet',
-    meetingUrl: '',
-    meetingId: '',
-    passcode: '',
+    platform: 'In-App Live Classroom',
     instructions: '',
     recordingUrl: '',
     status: 'Scheduled' as LiveClassStatus,
@@ -384,11 +381,8 @@ export const InstructorLiveClasses: React.FC = () => {
       date: new Date().toISOString().split('T')[0],
       startTime: '16:00',
       endTime: '17:30',
-      platform: 'Jitsi Meet',
-      meetingUrl: '',
-      meetingId: '',
-      passcode: '',
-      instructions: 'Please join 5 minutes early with your micro-environment ready.',
+      platform: 'In-App Live Classroom',
+      instructions: 'Please join 5 minutes early with your camera and mic ready.',
       recordingUrl: '',
       status: 'Scheduled',
     });
@@ -427,10 +421,7 @@ export const InstructorLiveClasses: React.FC = () => {
       date: startDate,
       startTime: startTimeStr,
       endTime: endTimeStr,
-      platform: item.platform,
-      meetingUrl: item.meetingUrl,
-      meetingId: item.meetingId || '',
-      passcode: item.passcode || '',
+      platform: 'In-App Live Classroom',
       instructions: item.instructions || '',
       recordingUrl: item.recordingUrl || '',
       status: item.status,
@@ -475,10 +466,6 @@ export const InstructorLiveClasses: React.FC = () => {
       showToast('Start Time is required.', 'warning');
       return;
     }
-    if (classForm.platform !== 'Jitsi Meet' && !classForm.meetingUrl.trim()) {
-      showToast('Meeting URL is required for external platforms.', 'warning');
-      return;
-    }
     if (classForm.audienceType === 'Selected Students' && selectedStudentIds.length === 0) {
       showToast('Please select at least 1 student for a Private Live Class.', 'warning');
       return;
@@ -504,10 +491,7 @@ export const InstructorLiveClasses: React.FC = () => {
           description: classForm.description,
           startTime: startISO,
           endTime: endISO,
-          platform: classForm.platform,
-          meetingUrl: classForm.platform === 'Jitsi Meet' ? undefined : classForm.meetingUrl.trim(),
-          meetingId: classForm.meetingId?.trim() || undefined,
-          passcode: classForm.passcode?.trim() || undefined,
+          platform: 'In-App Live Classroom',
           instructions: classForm.instructions,
           recordingUrl: classForm.recordingUrl?.trim() || undefined,
           status: targetStatus,
@@ -530,10 +514,7 @@ export const InstructorLiveClasses: React.FC = () => {
           description: classForm.description,
           startTime: startISO,
           endTime: endISO,
-          platform: classForm.platform,
-          meetingUrl: classForm.platform === 'Jitsi Meet' ? undefined : classForm.meetingUrl.trim(),
-          meetingId: classForm.meetingId?.trim() || undefined,
-          passcode: classForm.passcode?.trim() || undefined,
+          platform: 'In-App Live Classroom',
           instructions: classForm.instructions,
           recordingUrl: classForm.recordingUrl?.trim() || undefined,
           status: targetStatus,
@@ -611,17 +592,10 @@ export const InstructorLiveClasses: React.FC = () => {
   };
 
   // Platform Badge Renderer
-  const renderPlatformBadge = (platform?: string) => {
-    if (platform === 'Jitsi Meet') {
-      return (
-        <span className="px-2.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold text-[11px] border border-purple-300 dark:border-purple-800 flex items-center gap-1 w-max">
-          <FiVideo className="w-3 h-3 text-purple-600" /> Jitsi (In-App)
-        </span>
-      );
-    }
+  const renderPlatformBadge = (_platform?: string) => {
     return (
-      <span className="px-2.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] border border-emerald-200 dark:border-emerald-900 flex items-center gap-1 w-max">
-        <span className="w-2 h-2 rounded-full bg-emerald-500" /> {platform || 'Google Meet'}
+      <span className="px-2.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold text-[11px] border border-purple-300 dark:border-purple-800 flex items-center gap-1 w-max">
+        <FiVideo className="w-3 h-3 text-purple-600" /> In-App Live (LiveKit)
       </span>
     );
   };
@@ -941,48 +915,24 @@ export const InstructorLiveClasses: React.FC = () => {
                           <div className="flex items-center justify-end gap-1.5">
                             {/* 1. Scheduled Class: Start button */}
                             {item.status === 'Scheduled' && (
-                              item.platform === 'Jitsi Meet' ? (
-                                <button
-                                  onClick={() => navigate(`/instructor/live/room/${item.id}`)}
-                                  className="px-2.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs"
-                                  title="Start In-App Live Class"
-                                >
-                                  <FiVideo className="w-3.5 h-3.5" /> Start Class
-                                </button>
-                              ) : (
-                                <a
-                                  href={item.meetingUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="px-2.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs"
-                                  title="Start Live Meeting"
-                                >
-                                  <FiExternalLink className="w-3.5 h-3.5" /> Start Class
-                                </a>
-                              )
+                              <button
+                                onClick={() => navigate(`/instructor/live/room/${item.id}`)}
+                                className="px-2.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors"
+                                title="Start In-App Live Class"
+                              >
+                                <FiVideo className="w-3.5 h-3.5" /> Start Class
+                              </button>
                             )}
 
                             {/* 2. Live Class: Join/Continue button */}
                             {item.status === 'Live' && (
-                              item.platform === 'Jitsi Meet' ? (
-                                <button
-                                  onClick={() => navigate(`/instructor/live/room/${item.id}`)}
-                                  className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs animate-pulse"
-                                  title="Join In-App Live Class"
-                                >
-                                  <FiRadio className="w-3.5 h-3.5 text-white" /> Join Class
-                                </button>
-                              ) : (
-                                <a
-                                  href={item.meetingUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs animate-pulse"
-                                  title="Join Live Class"
-                                >
-                                  <FiExternalLink className="w-3.5 h-3.5 text-white" /> Join Class
-                                </a>
-                              )
+                              <button
+                                onClick={() => navigate(`/instructor/live/room/${item.id}`)}
+                                className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs animate-pulse transition-colors"
+                                title="Join In-App Live Class"
+                              >
+                                <FiRadio className="w-3.5 h-3.5 text-white" /> Join Class
+                              </button>
                             )}
 
                             {/* View Details / Q&A: Available for all statuses */}
@@ -1092,95 +1042,41 @@ export const InstructorLiveClasses: React.FC = () => {
               />
             </div>
 
-            {/* Course & Platform Selection */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Course *
-                </label>
-                <select
-                  value={classForm.courseId}
-                  onChange={(e) => setClassForm({ ...classForm, courseId: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none"
-                >
-                  {courses.length === 0 ? (
-                    <option value="">No courses available</option>
-                  ) : (
-                    courses.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.title}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Meeting Platform *
-                </label>
-                <select
-                  value={classForm.platform}
-                  onChange={(e) => setClassForm({ ...classForm, platform: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none font-medium"
-                >
-                  <option value="Jitsi Meet">Jitsi Meet (In-App Live Classroom)</option>
-                  <option value="Google Meet">Google Meet</option>
-                  <option value="Zoom">Zoom</option>
-                  <option value="Microsoft Teams">Microsoft Teams</option>
-                </select>
-              </div>
+            {/* Course Selection */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Course *
+              </label>
+              <select
+                value={classForm.courseId}
+                onChange={(e) => setClassForm({ ...classForm, courseId: e.target.value })}
+                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none"
+              >
+                {courses.length === 0 ? (
+                  <option value="">No courses available</option>
+                ) : (
+                  courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))
+                )}
+              </select>
             </div>
 
-            {/* Meeting Link or In-App Auto Notice */}
-            {classForm.platform !== 'Jitsi Meet' ? (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Meeting Link ({classForm.platform}) *
-                </label>
-                <input
-                  type="url"
-                  placeholder={`https://meet.${classForm.platform === 'Google Meet' ? 'google.com/abc-defg-hij' : 'zoom.us/j/123456789'}`}
-                  value={classForm.meetingUrl}
-                  onChange={(e) => setClassForm({ ...classForm, meetingUrl: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none font-mono text-xs"
-                />
+            {/* In-App Live Classroom Banner */}
+            <div className="p-4 bg-purple-50 dark:bg-purple-950/40 rounded-2xl border border-purple-200 dark:border-purple-900/60 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-purple-600/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                <FiVideo className="w-4 h-4" />
               </div>
-            ) : (
-              <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-900 flex items-center gap-2 text-xs text-purple-700 dark:text-purple-300">
-                <FiVideo className="w-4 h-4 text-purple-600 shrink-0" />
-                <span>
-                  <strong>In-App Video Enabled:</strong> EduSphere will automatically generate a permanent, secure in-app Jitsi Meet classroom (<code className="font-mono text-[11px] bg-purple-100 dark:bg-purple-900 px-1 py-0.5 rounded">edusphere-classId</code>). No external URL entry required!
-                </span>
-              </div>
-            )}
-
-            {/* Meeting ID & Passcode (Optional) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Meeting ID (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 849-2049-1823"
-                  value={classForm.meetingId}
-                  onChange={(e) => setClassForm({ ...classForm, meetingId: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Passcode (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. EduSphere2026"
-                  value={classForm.passcode}
-                  onChange={(e) => setClassForm({ ...classForm, passcode: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none font-mono"
-                />
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-purple-900 dark:text-purple-200">
+                  EduSphere In-App Live Classroom (LiveKit WebRTC)
+                </h4>
+                <p className="text-[11px] text-purple-700 dark:text-purple-300/80 leading-relaxed">
+                  A dedicated high-performance virtual classroom will be provisioned inside EduSphere. 
+                  Enrolled students join directly in their browser with audio, HD video, screen sharing, and real-time interactive Q&A.
+                </p>
               </div>
             </div>
 
@@ -1533,28 +1429,16 @@ export const InstructorLiveClasses: React.FC = () => {
                         <FiCopy className="w-3.5 h-3.5" />
                       )}
                     </button>
-                    {viewingClass.platform === 'Jitsi Meet' ? (
-                      <button
-                        onClick={() => {
-                          setViewingClass(null);
-                          navigate(`/instructor/live/room/${viewingClass.id}`);
-                        }}
-                        className="p-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors font-bold text-xs flex items-center gap-1"
-                        title="Enter Classroom"
-                      >
-                        <FiVideo className="w-3.5 h-3.5" />
-                      </button>
-                    ) : (
-                      <a
-                        href={viewingClass.meetingUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-                        title="Open Link"
-                      >
-                        <FiExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
+                    <button
+                      onClick={() => {
+                        setViewingClass(null);
+                        navigate(`/instructor/live/room/${viewingClass.id}`);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors font-bold text-xs flex items-center gap-1"
+                      title="Enter In-App Classroom"
+                    >
+                      <FiVideo className="w-3.5 h-3.5" /> Enter Room
+                    </button>
                   </div>
                 </div>
               )}
@@ -1708,34 +1592,6 @@ export const InstructorLiveClasses: React.FC = () => {
                     <FiEdit className="w-3.5 h-3.5 mr-1" /> Edit Class
                   </Button>
 
-                  {viewingClass.platform === 'Jitsi Meet' ? (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        setViewingClass(null);
-                        navigate(`/instructor/live/room/${viewingClass.id}`);
-                      }}
-                      className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
-                    >
-                      <FiVideo className="w-3.5 h-3.5 mr-1" /> Start In-App Class
-                    </Button>
-                  ) : (
-                    <a
-                      href={viewingClass.meetingUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm"
-                    >
-                      <FiVideo className="w-3.5 h-3.5 mr-1" /> Start Live Class
-                    </a>
-                  )}
-                </>
-              )}
-
-              {/* Live: Allow Join (No Edit) */}
-              {viewingClass.status === 'Live' && (
-                viewingClass.platform === 'Jitsi Meet' ? (
                   <Button
                     variant="primary"
                     size="sm"
@@ -1743,20 +1599,26 @@ export const InstructorLiveClasses: React.FC = () => {
                       setViewingClass(null);
                       navigate(`/instructor/live/room/${viewingClass.id}`);
                     }}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold animate-pulse"
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
                   >
-                    <FiRadio className="w-3.5 h-3.5 mr-1" /> Join In-App Class
+                    <FiVideo className="w-3.5 h-3.5 mr-1" /> Start Live Classroom
                   </Button>
-                ) : (
-                  <a
-                    href={viewingClass.meetingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm animate-pulse"
-                  >
-                    <FiRadio className="w-3.5 h-3.5 mr-1" /> Join Live Class
-                  </a>
-                )
+                </>
+              )}
+
+              {/* Live: Allow Join (No Edit) */}
+              {viewingClass.status === 'Live' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setViewingClass(null);
+                    navigate(`/instructor/live/room/${viewingClass.id}`);
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold animate-pulse"
+                >
+                  <FiRadio className="w-3.5 h-3.5 mr-1" /> Join Live Classroom
+                </Button>
               )}
 
               {/* Draft: Allow Edit */}

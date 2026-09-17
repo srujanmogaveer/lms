@@ -14,6 +14,8 @@ import {
   FiPieChart,
   FiAlertTriangle,
   FiLock,
+  FiX,
+  FiLayers,
 } from 'react-icons/fi';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -197,6 +199,13 @@ export const InstructorQuizManagement: React.FC = () => {
       if (coursesRes.success && Array.isArray(coursesRes.data)) {
         setCoursesList(coursesRes.data);
         currentCourses = coursesRes.data;
+        if (coursesRes.data.length > 0) {
+          const firstCourseId = coursesRes.data[0]?.id || '';
+          setQuizForm((prev) => ({
+            ...prev,
+            courseId: prev.courseId || paramCourseId || (selectedCourseFilter !== 'All' ? selectedCourseFilter : '') || firstCourseId,
+          }));
+        }
       }
       if (compRes && compRes.success && compRes.data && latestCourseRef.current === currentTargetCourse) {
         setCompletionSummary(compRes.data);
@@ -304,26 +313,42 @@ export const InstructorQuizManagement: React.FC = () => {
     status: 'Published' as InstructorQuizStatus,
   });
 
-
+  // Add Multiple Questions Modal State
+  const [isAddQuestionsModalOpen, setIsAddQuestionsModalOpen] = useState<boolean>(false);
+  const [numQuestionsToAdd, setNumQuestionsToAdd] = useState<number | string>('');
 
   const handleAddNewQuestionCard = () => {
-    const newQuestion: QuestionBankItem = {
-      id: `iq-${Date.now().toString().slice(-4)}`,
-      courseId: quizForm.courseId,
-      courseTitle: 'Course Quiz Question',
-      type: 'Single Answer',
-      questionText: '',
-      options: [
-        { id: 'opt-a', text: '', isCorrect: true },
-        { id: 'opt-b', text: '', isCorrect: false },
-        { id: 'opt-c', text: '', isCorrect: false },
-        { id: 'opt-d', text: '', isCorrect: false },
-      ],
-      fillBlankAnswer: '',
-      marks: 10,
-    };
-    setInlineQuestions([...inlineQuestions, newQuestion]);
-    showToast('New question card added below.');
+    setNumQuestionsToAdd('');
+    setIsAddQuestionsModalOpen(true);
+  };
+
+  const handleConfirmAddQuestions = () => {
+    const parsed = typeof numQuestionsToAdd === 'number' ? numQuestionsToAdd : parseInt(numQuestionsToAdd, 10);
+    const count = Math.max(1, Math.min(50, isNaN(parsed) ? 1 : parsed));
+    const newQuestions: QuestionBankItem[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const qId = `iq-${Date.now().toString().slice(-5)}-${Math.random().toString(36).substring(2, 6)}-${i + 1}`;
+      newQuestions.push({
+        id: qId,
+        courseId: quizForm.courseId,
+        courseTitle: 'Course Quiz Question',
+        type: 'Single Answer',
+        questionText: '',
+        options: [
+          { id: `opt-${qId}-a`, text: '', isCorrect: true },
+          { id: `opt-${qId}-b`, text: '', isCorrect: false },
+          { id: `opt-${qId}-c`, text: '', isCorrect: false },
+          { id: `opt-${qId}-d`, text: '', isCorrect: false },
+        ],
+        fillBlankAnswer: '',
+        marks: 10,
+      });
+    }
+
+    setInlineQuestions((prev) => [...prev, ...newQuestions]);
+    setIsAddQuestionsModalOpen(false);
+    showToast(`Added ${count} question card${count > 1 ? 's' : ''} to quiz draft.`);
   };
 
   const handleQuestionTypeChange = (qId: string, newType: QuestionType) => {
@@ -490,14 +515,18 @@ export const InstructorQuizManagement: React.FC = () => {
       });
   }, [quizzes, searchQuery, selectedCourseFilter, selectedTypeFilter, selectedStatusFilter, sortBy]);
 
-  // Quiz Form Validation Errors
+  // Quiz Form Validation State & Errors
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+
   const formValidation = useMemo(() => {
     const warnings: string[] = [];
     if (!quizForm.title.trim()) warnings.push('Missing Quiz Title.');
-    if (!quizForm.courseId) warnings.push('Missing Target Course.');
+    const effectiveCourseId = quizForm.courseId || activeCourseId || coursesList[0]?.id;
+    if (!effectiveCourseId) warnings.push('Missing Target Course.');
     if (quizForm.passingMarks < 1 || quizForm.passingMarks > 100) warnings.push('Invalid Passing Marks (Must be 1-100%).');
     return warnings;
-  }, [quizForm]);
+  }, [quizForm, activeCourseId, coursesList]);
 
   // Open creation form
   const openCreateForm = () => {
@@ -506,26 +535,17 @@ export const InstructorQuizManagement: React.FC = () => {
       return;
     }
     setEditingQuiz(null);
-    setInlineQuestions([
-      {
-        id: 'iq-1',
-        courseId: quizForm.courseId,
-        courseTitle: 'Full-Stack Web Bootcamp',
-        type: 'Single Answer',
-        questionText: '',
-        options: [
-          { id: 'opt-a', text: '', isCorrect: true },
-          { id: 'opt-b', text: '', isCorrect: false },
-          { id: 'opt-c', text: '', isCorrect: false },
-          { id: 'opt-d', text: '', isCorrect: false },
-        ],
-        fillBlankAnswer: '',
-        marks: 10,
-      },
-    ]);
+    setHasAttemptedSubmit(false);
+    setInlineQuestions([]);
+    const defaultCourseId =
+      (selectedCourseFilter && selectedCourseFilter !== 'All' ? selectedCourseFilter : '') ||
+      activeCourseId ||
+      coursesList[0]?.id ||
+      '';
+
     setQuizForm({
       title: '',
-      courseId: selectedCourseFilter && selectedCourseFilter !== 'All' ? selectedCourseFilter : activeCourseId,
+      courseId: defaultCourseId,
       description: '',
       quizType: 'Mandatory',
       questionsCount: 10,
@@ -545,6 +565,7 @@ export const InstructorQuizManagement: React.FC = () => {
       return;
     }
     setEditingQuiz(q);
+    setHasAttemptedSubmit(false);
     setQuizForm({
       title: q.title,
       courseId: q.courseId,
@@ -587,12 +608,9 @@ export const InstructorQuizManagement: React.FC = () => {
       showToast('Cannot modify quizzes on a published course.', 'warning');
       return;
     }
-    if (!quizForm.title.trim()) {
-      showToast('Quiz Title is required.', 'warning');
-      return;
-    }
-    if (quizForm.passingMarks < 1 || quizForm.passingMarks > 100) {
-      showToast('Passing Marks must be between 1% and 100%.', 'warning');
+    if (formValidation.length > 0) {
+      setHasAttemptedSubmit(true);
+      showToast(formValidation[0], 'warning');
       return;
     }
 
@@ -607,72 +625,73 @@ export const InstructorQuizManagement: React.FC = () => {
         'question'
       );
       if (!confirmed) return;
+
+      // Validate each question strictly when publishing
+      if (inlineQuestions.length === 0) {
+        showToast('Please add at least one question before publishing the quiz.', 'warning');
+        return;
+      }
+
+      for (let i = 0; i < inlineQuestions.length; i++) {
+        const q = inlineQuestions[i];
+        const qNum = i + 1;
+        if (!q.questionText || !q.questionText.trim()) {
+          showToast(`Question ${qNum}: Question statement is required.`, 'warning');
+          return;
+        }
+        if (!q.marks || q.marks <= 0) {
+          showToast(`Question ${qNum}: Marks must be greater than 0.`, 'warning');
+          return;
+        }
+
+        if (q.type === 'Single Answer') {
+          if (!q.options || q.options.length < 2) {
+            showToast(`Question ${qNum} (Single Answer): At least 2 options are required.`, 'warning');
+            return;
+          }
+          const hasEmptyOpt = q.options.some((o) => !o.text || !o.text.trim());
+          if (hasEmptyOpt) {
+            showToast(`Question ${qNum} (Single Answer): All option fields must be filled.`, 'warning');
+            return;
+          }
+          const correctCount = q.options.filter((o) => o.isCorrect).length;
+          if (correctCount !== 1) {
+            showToast(`Question ${qNum} (Single Answer): Exactly 1 correct answer must be selected.`, 'warning');
+            return;
+          }
+        } else if (q.type === 'Multiple Answer') {
+          if (!q.options || q.options.length < 2) {
+            showToast(`Question ${qNum} (Multiple Answer): At least 2 options are required.`, 'warning');
+            return;
+          }
+          const hasEmptyOpt = q.options.some((o) => !o.text || !o.text.trim());
+          if (hasEmptyOpt) {
+            showToast(`Question ${qNum} (Multiple Answer): All option fields must be filled.`, 'warning');
+            return;
+          }
+          const correctCount = q.options.filter((o) => o.isCorrect).length;
+          if (correctCount < 1) {
+            showToast(`Question ${qNum} (Multiple Answer): At least 1 correct answer must be selected.`, 'warning');
+            return;
+          }
+        } else if (q.type === 'True or False') {
+          const correctCount = (q.options || []).filter((o) => o.isCorrect).length;
+          if (correctCount !== 1) {
+            showToast(`Question ${qNum} (True or False): Exactly 1 correct answer (True or False) must be selected.`, 'warning');
+            return;
+          }
+        } else if (q.type === 'Fill in the Blanks') {
+          if (!q.fillBlankAnswer || !q.fillBlankAnswer.trim()) {
+            showToast(`Question ${qNum} (Fill in the Blanks): Expected blank answer is required.`, 'warning');
+            return;
+          }
+        }
+      }
     }
 
     const selectedCourse = coursesList.find((c) => c.id === quizForm.courseId);
 
-    // Validate each question according to rules
-    if (inlineQuestions.length === 0) {
-      showToast('Please add at least one question to the quiz.', 'warning');
-      return;
-    }
-
-    for (let i = 0; i < inlineQuestions.length; i++) {
-      const q = inlineQuestions[i];
-      const qNum = i + 1;
-      if (!q.questionText || !q.questionText.trim()) {
-        showToast(`Question ${qNum}: Question statement is required.`, 'warning');
-        return;
-      }
-      if (!q.marks || q.marks <= 0) {
-        showToast(`Question ${qNum}: Marks must be greater than 0.`, 'warning');
-        return;
-      }
-
-      if (q.type === 'Single Answer') {
-        if (!q.options || q.options.length < 2) {
-          showToast(`Question ${qNum} (Single Answer): At least 2 options are required.`, 'warning');
-          return;
-        }
-        const hasEmptyOpt = q.options.some((o) => !o.text || !o.text.trim());
-        if (hasEmptyOpt) {
-          showToast(`Question ${qNum} (Single Answer): All option fields must be filled.`, 'warning');
-          return;
-        }
-        const correctCount = q.options.filter((o) => o.isCorrect).length;
-        if (correctCount !== 1) {
-          showToast(`Question ${qNum} (Single Answer): Exactly 1 correct answer must be selected.`, 'warning');
-          return;
-        }
-      } else if (q.type === 'Multiple Answer') {
-        if (!q.options || q.options.length < 2) {
-          showToast(`Question ${qNum} (Multiple Answer): At least 2 options are required.`, 'warning');
-          return;
-        }
-        const hasEmptyOpt = q.options.some((o) => !o.text || !o.text.trim());
-        if (hasEmptyOpt) {
-          showToast(`Question ${qNum} (Multiple Answer): All option fields must be filled.`, 'warning');
-          return;
-        }
-        const correctCount = q.options.filter((o) => o.isCorrect).length;
-        if (correctCount < 1) {
-          showToast(`Question ${qNum} (Multiple Answer): At least 1 correct answer must be selected.`, 'warning');
-          return;
-        }
-      } else if (q.type === 'True or False') {
-        const correctCount = (q.options || []).filter((o) => o.isCorrect).length;
-        if (correctCount !== 1) {
-          showToast(`Question ${qNum} (True or False): Exactly 1 correct answer (True or False) must be selected.`, 'warning');
-          return;
-        }
-      } else if (q.type === 'Fill in the Blanks') {
-        if (!q.fillBlankAnswer || !q.fillBlankAnswer.trim()) {
-          showToast(`Question ${qNum} (Fill in the Blanks): Expected blank answer is required.`, 'warning');
-          return;
-        }
-      }
-    }
-
+    setIsSaving(true);
     try {
       if (editingQuiz) {
         // Edit mode
@@ -690,43 +709,81 @@ export const InstructorQuizManagement: React.FC = () => {
 
         if (res.success && res.data) {
           const updatedInlineQuestions = [...inlineQuestions];
+          const newQuestionsIndices: number[] = [];
+          const newQuestionsPayloads: any[] = [];
+          const updatePromises: Promise<any>[] = [];
 
-          // Save or update questions
+          // Separate newly added questions (batch create) from existing questions (concurrent update)
           for (let i = 0; i < updatedInlineQuestions.length; i++) {
             const q = updatedInlineQuestions[i];
+            const fallbackOptions = [
+              { id: 'opt-1', text: 'Option A', isCorrect: true },
+              { id: 'opt-2', text: 'Option B', isCorrect: false },
+            ];
             const opts = q.type === 'True or False'
               ? (q.options && q.options.length === 2 ? q.options : [
                   { id: 'opt-tf-1', text: 'True', isCorrect: true },
                   { id: 'opt-tf-2', text: 'False', isCorrect: false },
                 ])
-              : (q.options || []);
+              : (q.options && q.options.length > 0 ? q.options : fallbackOptions);
 
             const correctAns = q.type === 'Fill in the Blanks'
-              ? (q.fillBlankAnswer?.trim() || '')
-              : (opts.find((o) => o.isCorrect)?.id || (q.type === 'Multiple Answer' ? opts.filter((o) => o.isCorrect).map((o) => o.id) : undefined));
+              ? (q.fillBlankAnswer?.trim() || 'Answer')
+              : (opts.find((o) => o.isCorrect)?.id || (q.type === 'Multiple Answer' ? opts.filter((o) => o.isCorrect).map((o) => o.id) : opts[0]?.id));
+
+            const safeQuestionText = q.questionText.trim() || `Draft Question ${i + 1}`;
 
             if (q.id.startsWith('iq-') || q.id.startsWith('ai-q-')) {
-              const qCreateRes = await quizService.createQuestion(editingQuiz.id, {
-                questionText: q.questionText.trim(),
+              newQuestionsIndices.push(i);
+              newQuestionsPayloads.push({
+                questionText: safeQuestionText,
                 questionType: q.type,
                 options: opts,
                 correctAnswer: correctAns,
                 points: q.marks || 10,
-                explanation: q.explanation,
+                explanation: q.explanation || '',
+                position: i + 1,
               });
-              if (qCreateRes.success && qCreateRes.data) {
-                updatedInlineQuestions[i] = { ...q, id: qCreateRes.data.id, options: opts };
-              }
             } else {
-              await quizService.updateQuestion(q.id, {
-                questionText: q.questionText.trim(),
-                questionType: q.type,
-                options: opts,
-                correctAnswer: correctAns,
-                points: q.marks || 10,
-                explanation: q.explanation,
-              });
+              updatePromises.push(
+                quizService.updateQuestion(q.id, {
+                  questionText: safeQuestionText,
+                  questionType: q.type,
+                  options: opts,
+                  correctAnswer: correctAns,
+                  points: q.marks || 10,
+                  explanation: q.explanation || '',
+                })
+              );
             }
+          }
+
+          // Execute batch creation for new questions and parallel updates for existing ones concurrently
+          const tasks: Promise<any>[] = [];
+          if (newQuestionsPayloads.length > 0) {
+            tasks.push(
+              quizService.createQuestionsBatch(editingQuiz.id, newQuestionsPayloads).then((batchRes) => {
+                if (batchRes.success && Array.isArray(batchRes.data)) {
+                  batchRes.data.forEach((createdQ, idx) => {
+                    const origIdx = newQuestionsIndices[idx];
+                    if (origIdx !== undefined && updatedInlineQuestions[origIdx]) {
+                      updatedInlineQuestions[origIdx] = {
+                        ...updatedInlineQuestions[origIdx],
+                        id: createdQ.id,
+                        options: createdQ.options || updatedInlineQuestions[origIdx].options,
+                      };
+                    }
+                  });
+                }
+              })
+            );
+          }
+          if (updatePromises.length > 0) {
+            tasks.push(Promise.all(updatePromises));
+          }
+
+          if (tasks.length > 0) {
+            await Promise.all(tasks);
           }
 
           setInlineQuestions(updatedInlineQuestions);
@@ -756,8 +813,19 @@ export const InstructorQuizManagement: React.FC = () => {
         }
       } else {
         // Create mode
-        const res = await quizService.createQuiz(quizForm.courseId, {
-          title: quizForm.title,
+        const targetCourseId =
+          quizForm.courseId ||
+          (selectedCourseFilter !== 'All' ? selectedCourseFilter : '') ||
+          activeCourseId ||
+          coursesList[0]?.id;
+
+        if (!targetCourseId) {
+          showToast('Target course is required. Please select a course.', 'warning');
+          return;
+        }
+
+        const res = await quizService.createQuiz(targetCourseId, {
+          title: quizForm.title.trim(),
           description: quizForm.description,
           quizType: quizForm.quizType,
           passingScore: Number(quizForm.passingMarks),
@@ -772,30 +840,46 @@ export const InstructorQuizManagement: React.FC = () => {
           const createdQuiz = res.data;
           const updatedInlineQuestions = [...inlineQuestions];
 
-          // Create questions
-          for (let i = 0; i < updatedInlineQuestions.length; i++) {
-            const q = updatedInlineQuestions[i];
+          // Format questions for single batch insert
+          const questionPayloads = updatedInlineQuestions.map((q, idx) => {
+            const fallbackOptions = [
+              { id: 'opt-1', text: 'Option A', isCorrect: true },
+              { id: 'opt-2', text: 'Option B', isCorrect: false },
+            ];
             const opts = q.type === 'True or False'
               ? (q.options && q.options.length === 2 ? q.options : [
                   { id: 'opt-tf-1', text: 'True', isCorrect: true },
                   { id: 'opt-tf-2', text: 'False', isCorrect: false },
                 ])
-              : (q.options || []);
+              : (q.options && q.options.length > 0 ? q.options : fallbackOptions);
 
             const correctAns = q.type === 'Fill in the Blanks'
-              ? (q.fillBlankAnswer?.trim() || '')
-              : (opts.find((o) => o.isCorrect)?.id || (q.type === 'Multiple Answer' ? opts.filter((o) => o.isCorrect).map((o) => o.id) : undefined));
+              ? (q.fillBlankAnswer?.trim() || 'Answer')
+              : (opts.find((o) => o.isCorrect)?.id || (q.type === 'Multiple Answer' ? opts.filter((o) => o.isCorrect).map((o) => o.id) : opts[0]?.id));
 
-            const qCreateRes = await quizService.createQuestion(createdQuiz.id, {
-              questionText: q.questionText.trim(),
+            return {
+              questionText: q.questionText.trim() || `Draft Question ${idx + 1}`,
               questionType: q.type,
               options: opts,
               correctAnswer: correctAns,
               points: q.marks || 10,
-              explanation: q.explanation,
-            });
-            if (qCreateRes.success && qCreateRes.data) {
-              updatedInlineQuestions[i] = { ...q, id: qCreateRes.data.id, options: opts };
+              explanation: q.explanation || '',
+              position: idx + 1,
+            };
+          });
+
+          if (questionPayloads.length > 0) {
+            const qBatchRes = await quizService.createQuestionsBatch(createdQuiz.id, questionPayloads);
+            if (qBatchRes.success && Array.isArray(qBatchRes.data)) {
+              qBatchRes.data.forEach((createdQ, idx) => {
+                if (updatedInlineQuestions[idx]) {
+                  updatedInlineQuestions[idx] = {
+                    ...updatedInlineQuestions[idx],
+                    id: createdQ.id,
+                    options: createdQ.options || updatedInlineQuestions[idx].options,
+                  };
+                }
+              });
             }
           }
 
@@ -808,7 +892,7 @@ export const InstructorQuizManagement: React.FC = () => {
             title: createdQuiz.title,
             description: createdQuiz.description || '',
             quizType: createdQuiz.quizType,
-            questionsCount: updatedInlineQuestions.length || 1,
+            questionsCount: updatedInlineQuestions.length || 0,
             passingMarks: createdQuiz.passingScore,
             timeLimitMinutes: createdQuiz.timeLimitMinutes,
             maxAttempts: createdQuiz.maxAttempts,
@@ -829,6 +913,8 @@ export const InstructorQuizManagement: React.FC = () => {
     } catch (err: any) {
       showToast(err.message || 'Failed to save quiz', 'warning');
       return;
+    } finally {
+      setIsSaving(false);
     }
 
     // Refresh course completion status immediately so the Submit for Admin Approval button and checklist update instantly
@@ -1449,8 +1535,8 @@ export const InstructorQuizManagement: React.FC = () => {
       {/* ======================================================== */}
       {activeTab === 'create' && (
         <div className="space-y-6">
-          {/* Validation Warnings if any */}
-          {formValidation.length > 0 && (
+          {/* Validation Warnings if any (only shown after submit attempt) */}
+          {hasAttemptedSubmit && formValidation.length > 0 && (
             <div className="p-4 bg-amber-50/80 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 rounded-2xl text-xs space-y-1">
               <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
                 <FiAlertTriangle className="w-4 h-4 text-amber-600" />
@@ -1507,7 +1593,7 @@ export const InstructorQuizManagement: React.FC = () => {
                   Target Course *
                 </label>
                 <select
-                  value={quizForm.courseId}
+                  value={quizForm.courseId || activeCourseId || coursesList[0]?.id || ''}
                   onChange={(e) => setQuizForm({ ...quizForm, courseId: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-semibold focus:outline-none"
                 >
@@ -1636,7 +1722,30 @@ export const InstructorQuizManagement: React.FC = () => {
               </div>
 
               {/* Questions List */}
-              {inlineQuestions.map((q, idx) => (
+              {inlineQuestions.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto">
+                    <FiHelpCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                      0 Question Cards Added
+                    </h5>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Click below to choose how many question cards you want to add to this quiz.
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleAddNewQuestionCard}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                  >
+                    <FiPlus className="w-4 h-4 mr-1" /> Add Question Cards
+                  </Button>
+                </div>
+              ) : (
+                inlineQuestions.map((q, idx) => (
                 <div
                   key={q.id}
                   className="p-5 bg-slate-50/80 dark:bg-slate-800/60 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-4 text-xs shadow-sm"
@@ -1826,7 +1935,8 @@ export const InstructorQuizManagement: React.FC = () => {
                     </div>
                   )}
                 </div>
-              ))}
+              ))
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -1844,19 +1954,21 @@ export const InstructorQuizManagement: React.FC = () => {
                 <Button
                   variant="outline"
                   size="md"
+                  disabled={isSaving}
                   onClick={() => handleSaveQuiz('Draft')}
-                  className="text-xs font-bold text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                  className="text-xs font-bold text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 disabled:opacity-50"
                 >
-                  Save as Draft
+                  {isSaving ? 'Saving...' : 'Save as Draft'}
                 </Button>
 
                 <Button
                   variant="primary"
                   size="md"
+                  disabled={isSaving}
                   onClick={() => handleSaveQuiz('Published')}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 shadow-md"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 shadow-md disabled:opacity-50"
                 >
-                  Save & Submit Quiz
+                  {isSaving ? 'Submitting...' : 'Save & Submit Quiz'}
                 </Button>
               </div>
             </div>
@@ -2112,6 +2224,113 @@ export const InstructorQuizManagement: React.FC = () => {
             <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
               <Button variant="primary" size="sm" onClick={() => setViewingQuiz(null)}>
                 Close Preview
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Add Multiple Questions Modal */}
+      {isAddQuestionsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl max-w-sm w-full shadow-2xl space-y-5"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <FiLayers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                    Add Question Cards
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Specify the number of question cards to add.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddQuestionsModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  How many question cards?
+                </label>
+                
+                {/* Preset Chips */}
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[1, 2, 5, 10].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setNumQuestionsToAdd(num)}
+                      className={`py-2 px-2.5 rounded-xl font-extrabold text-xs transition-all border ${
+                        numQuestionsToAdd === num
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-sm shadow-purple-500/30'
+                          : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-purple-400'
+                      }`}
+                    >
+                      +{num}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Number Input */}
+                <div className="space-y-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={numQuestionsToAdd}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setNumQuestionsToAdd('');
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        if (!isNaN(parsed)) {
+                          setNumQuestionsToAdd(Math.min(50, Math.max(1, parsed)));
+                        }
+                      }
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 font-bold text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter number (e.g. 5)"
+                    autoFocus
+                  />
+                  <div className="text-center text-[11px] text-slate-400">
+                    Min 1 • Max 50 cards
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddQuestionsModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleConfirmAddQuestions}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center gap-1.5"
+              >
+                <FiPlus className="w-4 h-4" /> Add {Number(numQuestionsToAdd) || 1} {Number(numQuestionsToAdd) === 1 ? 'Card' : 'Cards'}
               </Button>
             </div>
           </motion.div>

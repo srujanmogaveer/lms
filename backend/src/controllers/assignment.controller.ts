@@ -40,6 +40,26 @@ export class AssignmentController {
   }
 
   /**
+   * Instructor: Upload assignment reference attachment or sample template
+   */
+  public async uploadAssignmentAttachment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authUserId = req.user?.id;
+      if (!authUserId) throw ApiError.unauthorized('Authentication required');
+
+      const instructorProfileId = await courseService.resolveInstructorProfileId(authUserId);
+      const file = req.file;
+      if (!file) throw ApiError.badRequest('No attachment file provided');
+
+      const courseId = (req.body?.courseId || req.query?.courseId) as string | undefined;
+      const uploaded = await StorageService.uploadAssignmentAttachment(file, instructorProfileId, courseId);
+      sendResponse(res, 200, 'Attachment uploaded successfully', uploaded);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Instructor: Create an assignment for a course
    */
   public async createAssignment(req: Request, res: Response, next: NextFunction): Promise<void> {

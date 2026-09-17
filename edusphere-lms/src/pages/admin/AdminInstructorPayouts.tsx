@@ -416,7 +416,8 @@ export const AdminInstructorPayouts: React.FC = () => {
             >
               <option value="All">All Payout Statuses</option>
               <option value="Pending">Pending Payouts</option>
-              <option value="Paid">Paid Payouts</option>
+              <option value="Settled">Settled Payouts</option>
+              <option value="No Dues">No Dues</option>
             </select>
           </div>
 
@@ -731,7 +732,7 @@ export const AdminInstructorPayouts: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <Badge variant={payout.payoutStatus === 'Paid' ? 'success' : 'warning'}>
+                        <Badge variant={payout.payoutStatus === 'Settled' ? 'success' : payout.payoutStatus === 'Pending' ? 'warning' : 'neutral'}>
                           {payout.payoutStatus}
                         </Badge>
                       </td>
@@ -1125,12 +1126,12 @@ export const AdminInstructorPayouts: React.FC = () => {
                     <span className="text-slate-500">Amount Payable:</span>
                     <span className="font-black text-emerald-600 text-sm">{formatINR(selectedPayoutDetails.amountPayableINR)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Status:</span>
-                    <Badge variant={selectedPayoutDetails.payoutStatus === 'Paid' ? 'success' : 'warning'}>
-                      {selectedPayoutDetails.payoutStatus}
-                    </Badge>
-                  </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Status:</span>
+                      <Badge variant={selectedPayoutDetails.payoutStatus === 'Settled' ? 'success' : selectedPayoutDetails.payoutStatus === 'Pending' ? 'warning' : 'neutral'}>
+                        {selectedPayoutDetails.payoutStatus}
+                      </Badge>
+                    </div>
                   {selectedPayoutDetails.utrNumber && (
                     <div className="flex justify-between">
                       <span className="text-slate-500">UTR / Ref:</span>

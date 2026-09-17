@@ -340,6 +340,7 @@ export const liveClassService = {
 
   /**
    * Authorize and verify joining/starting a live class session
+   * Generates LiveKit WebRTC access token and room connection details
    */
   async joinLiveClass(classId: string): Promise<{
     id: string;
@@ -350,6 +351,8 @@ export const liveClassService = {
     meetingId: string;
     roomName: string;
     isHost: boolean;
+    token?: string;
+    serverUrl?: string;
   }> {
     const response = await api.post<{
       id: string;
@@ -360,6 +363,8 @@ export const liveClassService = {
       meetingId: string;
       roomName: string;
       isHost: boolean;
+      token?: string;
+      serverUrl?: string;
     }>(`/live-classes/${classId}/join`);
     return (response.data as any)?.data || response.data;
   },

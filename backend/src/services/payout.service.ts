@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
 import { ApiError } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
@@ -213,7 +214,7 @@ export class PayoutService {
 
     // 4. Create new persistent payout item
     const paymentDateStr = paymentDate || new Date().toISOString().split('T')[0];
-    const newPayoutId = `pay-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newPayoutId = crypto.randomUUID();
 
     const newPayoutRecord: PayoutRecordItem = {
       id: newPayoutId,

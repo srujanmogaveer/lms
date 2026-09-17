@@ -1,98 +1,76 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { FiBookOpen, FiGithub, FiTwitter, FiLinkedin, FiMail } from 'react-icons/fi';
-import { Button } from '../ui/Button';
+import { FiBookOpen, FiGithub, FiTwitter, FiLinkedin } from 'react-icons/fi';
 
 export const Footer: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
-
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) {
-      setSubscribed(true);
-      setEmail('');
-    }
-  };
-
   return (
-    <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 py-12 transition-colors">
-      <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+    <footer className="relative bg-[#060811] border-t border-white/[0.08] text-slate-400 py-16 overflow-hidden">
+      {/* Subtle ambient lighting */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[200px] bg-gradient-to-b from-indigo-500/10 via-purple-500/5 to-transparent blur-3xl pointer-events-none" />
+
+      <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 relative z-10">
         
         {/* Brand Overview */}
         <div className="lg:col-span-2 space-y-4">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl text-brand-600 dark:text-brand-400">
-            <FiBookOpen className="w-6 h-6" />
-            <span>EduSphere LMS</span>
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-purple-600 shadow-md text-white">
+              <FiBookOpen className="w-5 h-5" />
+            </div>
+            <span className="font-bold text-lg text-white">
+              EduSphere<span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">LMS</span>
+            </span>
           </Link>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-            Empowering students, instructors, and educational institutions worldwide with an enterprise-grade digital learning ecosystem.
+          <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
+            Empowering students, instructors, and forward-thinking educational institutions with an immersive digital learning ecosystem.
           </p>
-          
-          {/* Newsletter Form */}
-          <div className="space-y-2 pt-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Subscribe to EduSphere Dispatch
-            </p>
-            {subscribed ? (
-              <p className="text-xs text-emerald-600 font-medium">Thank you for subscribing!</p>
-            ) : (
-              <form onSubmit={handleSubscribe} className="flex gap-2 max-w-sm">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your work email"
-                  required
-                  className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-                <Button type="submit" size="sm" variant="primary">
-                  <FiMail className="w-4 h-4" />
-                </Button>
-              </form>
-            )}
-          </div>
         </div>
 
         {/* Quick Links */}
         <div>
-          <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-3 text-sm">Quick Links</h4>
-          <ul className="space-y-2 text-xs">
-            <li><Link to="/courses" className="hover:text-brand-600 dark:hover:text-brand-400">All Courses</Link></li>
-            <li><Link to="/about" className="hover:text-brand-600 dark:hover:text-brand-400">About Us</Link></li>
-            <li><Link to="/contact" className="hover:text-brand-600 dark:hover:text-brand-400">Contact & Support</Link></li>
+          <h4 className="font-bold text-white mb-4 text-sm tracking-wide">Navigation</h4>
+          <ul className="space-y-2.5 text-xs">
+            <li><Link to="/courses" className="hover:text-white transition-colors">All Courses</Link></li>
+            <li><Link to="/about" className="hover:text-white transition-colors">About Platform</Link></li>
+            <li><Link to="/contact" className="hover:text-white transition-colors">Contact &amp; Support</Link></li>
           </ul>
         </div>
 
         {/* Categories */}
         <div>
-          <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-3 text-sm">Top Categories</h4>
-          <ul className="space-y-2 text-xs">
-            <li><Link to="/courses?cat=dev" className="hover:text-brand-600 dark:hover:text-brand-400">Software Development</Link></li>
-            <li><Link to="/courses?cat=design" className="hover:text-brand-600 dark:hover:text-brand-400">UI/UX Design Systems</Link></li>
-            <li><Link to="/courses?cat=ai" className="hover:text-brand-600 dark:hover:text-brand-400">Machine Learning & AI</Link></li>
-            <li><Link to="/courses?cat=business" className="hover:text-brand-600 dark:hover:text-brand-400">Business & Analytics</Link></li>
+          <h4 className="font-bold text-white mb-4 text-sm tracking-wide">Popular Tracks</h4>
+          <ul className="space-y-2.5 text-xs">
+            <li><Link to="/courses?cat=dev" className="hover:text-white transition-colors">Full-Stack Development</Link></li>
+            <li><Link to="/courses?cat=design" className="hover:text-white transition-colors">UI/UX &amp; Product Design</Link></li>
+            <li><Link to="/courses?cat=ai" className="hover:text-white transition-colors">Generative AI &amp; LLMs</Link></li>
+            <li><Link to="/courses?cat=cloud" className="hover:text-white transition-colors">Cloud &amp; DevOps</Link></li>
           </ul>
         </div>
 
         {/* Legal & Social */}
         <div>
-          <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-3 text-sm">Legal & Connect</h4>
-          <ul className="space-y-2 text-xs mb-4">
-            <li><Link to="/privacy" className="hover:text-brand-600 dark:hover:text-brand-400">Privacy Policy</Link></li>
-            <li><Link to="/terms" className="hover:text-brand-600 dark:hover:text-brand-400">Terms & Conditions</Link></li>
+          <h4 className="font-bold text-white mb-4 text-sm tracking-wide">Connect &amp; Legal</h4>
+          <ul className="space-y-2.5 text-xs mb-5">
+            <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+            <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
           </ul>
-          <div className="flex gap-3">
-            <a href="#" aria-label="Github" className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:text-brand-600"><FiGithub className="w-4 h-4" /></a>
-            <a href="#" aria-label="Twitter" className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:text-brand-600"><FiTwitter className="w-4 h-4" /></a>
-            <a href="#" aria-label="LinkedIn" className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:text-brand-600"><FiLinkedin className="w-4 h-4" /></a>
+          <div className="flex gap-2.5">
+            <a href="#" aria-label="Github" className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-white transition-all">
+              <FiGithub className="w-4 h-4" />
+            </a>
+            <a href="#" aria-label="Twitter" className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-white transition-all">
+              <FiTwitter className="w-4 h-4" />
+            </a>
+            <a href="#" aria-label="LinkedIn" className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-white transition-all">
+              <FiLinkedin className="w-4 h-4" />
+            </a>
           </div>
         </div>
 
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 pt-6 border-t border-slate-100 dark:border-slate-800/80 text-xs text-center text-slate-400">
-        © {new Date().getFullYear()} EduSphere LMS Inc. All rights reserved. Enterprise modular UI architecture.
+      <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 mt-12 pt-8 border-t border-white/[0.06] text-xs text-center text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <span>© {new Date().getFullYear()} EduSphere LMS. All rights reserved.</span>
+        <span className="text-slate-600">Immersive Next-Gen Learning Infrastructure</span>
       </div>
     </footer>
   );

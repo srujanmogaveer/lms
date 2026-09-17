@@ -140,6 +140,13 @@ router.post(
   (req, res, next) => quizController.createQuestion(req, res, next)
 );
 
+router.post(
+  '/instructor/quizzes/:quizId/questions/batch',
+  authenticateUser,
+  requireInstructor,
+  (req, res, next) => quizController.createQuestionsBatch(req, res, next)
+);
+
 router.patch(
   '/instructor/questions/:questionId',
   authenticateUser,

@@ -15,8 +15,7 @@ import {
   FiShield,
   FiChevronLeft,
   FiChevronRight,
-  FiLogOut,
-  FiMail
+  FiLogOut
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -25,7 +24,6 @@ import { SignOutConfirmModal } from './SignOutConfirmModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChatUnreadCount } from '../../hooks/useChatUnreadCount';
 import { adminService } from '../../services/adminService';
-import { contactService } from '../../services/contactService';
 
 interface AdminSidebarProps {
   isCollapsed: boolean;

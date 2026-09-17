@@ -28,6 +28,7 @@ import { enrollmentService } from '../../services/enrollmentService';
 import { progressService } from '../../services/progressService';
 import { useAuth } from '../../contexts/AuthContext';
 import { CourseReviewsSection } from '../../components/reviews/CourseReviewsSection';
+import { PromotionalVideoModal } from '../../components/common/PromotionalVideoModal';
 import type { Course } from '../../types';
 
 export const StudentCourseDetails: React.FC = () => {
@@ -36,6 +37,7 @@ export const StudentCourseDetails: React.FC = () => {
   const { currentUser } = useAuth();
   const [openModuleIdx, setOpenModuleIdx] = useState<number | null>(0);
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState<boolean>(false);
 
   // 1. Fetch real course details with React Query (5-min staleTime)
   const { data: courseData, isLoading: isCourseLoading } = useQuery({
@@ -94,11 +96,13 @@ export const StudentCourseDetails: React.FC = () => {
   const { data: studentEnrollment } = useQuery({
     queryKey: ['student-enrollments-detail', currentUser?.id],
     queryFn: async () => {
-      const res = await enrollmentService.getStudentEnrollments();
+      const res = await enrollmentService.getStudentEnrollments(true);
       return res.data || [];
     },
     enabled: !!currentUser?.id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const userEnrollment = useMemo(() => {
@@ -407,11 +411,34 @@ export const StudentCourseDetails: React.FC = () => {
         {/* Sticky Action Card (Right Column) */}
         <div className="lg:col-span-1 lg:sticky lg:top-20 space-y-6">
           <Card className="p-6 space-y-5 shadow-xl border-brand-100 dark:border-brand-900">
-            <img
-              src={course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80'}
-              alt={course.title}
-              className="w-full h-44 object-cover rounded-xl"
-            />
+            {/* Course Thumbnail with Video Preview Play Overlay (Only shown if instructor uploaded a promo video) */}
+            <div 
+              className={`relative w-full h-44 rounded-xl overflow-hidden group ${course.promoVideoUrl ? 'cursor-pointer' : ''}`}
+              onClick={() => {
+                if (course.promoVideoUrl) {
+                  setIsPromoModalOpen(true);
+                }
+              }}
+            >
+              <img
+                src={course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80'}
+                alt={course.title}
+                className={`w-full h-full object-cover transition-transform duration-300 ${course.promoVideoUrl ? 'group-hover:scale-105' : ''}`}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800';
+                }}
+              />
+              {Boolean(course.promoVideoUrl?.trim()) && (
+                <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-85 group-hover:opacity-100 transition-opacity">
+                  <div className="w-12 h-12 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <FiPlayCircle className="w-7 h-7" />
+                  </div>
+                  <span className="mt-2 text-[11px] font-bold text-white tracking-wide bg-black/60 px-2.5 py-0.5 rounded-full">
+                    Watch Promo Video
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* If Enrolled: Show Real Status and "Go to Course" */}
             {isEnrolled ? (
@@ -510,6 +537,14 @@ export const StudentCourseDetails: React.FC = () => {
           </Card>
         </div>
       </section>
+
+      {/* Promotional Video Lightbox Modal */}
+      <PromotionalVideoModal
+        isOpen={isPromoModalOpen}
+        onClose={() => setIsPromoModalOpen(false)}
+        videoUrl={course.promoVideoUrl}
+        courseTitle={course.title}
+      />
     </motion.div>
   );
 };

@@ -10,47 +10,32 @@ import {
   FiCreditCard, 
   FiAward, 
   FiShield, 
-  FiSend, 
-  FiCheckCircle, 
-  FiSearch
+  FiSearch,
 } from 'react-icons/fi';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { TextInput } from '../../components/forms/TextInput';
-import { Heading1, Subtitle } from '../../components/ui/Typography';
+import { HiSparkles } from 'react-icons/hi';
+import { TiltCard } from '../../components/public/TiltCard';
 
 export const FAQ: React.FC = () => {
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
   const [activeCategory] = useState<string>('All');
   const [faqSearch, setFaqSearch] = useState<string>('');
-  const [formSubmitted, setFormSubmitted] = useState<boolean>(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    category: 'General',
-    message: '',
-  });
 
   const supportCategories = [
     { title: 'Account & Security', icon: FiShield, count: '6 FAQs' },
-    { title: 'Courses & Enrollment', icon: FiBookOpen, count: '8 FAQs' },
-    { title: 'Payments & Billing', icon: FiCreditCard, count: '5 FAQs' },
-    { title: 'Certificates & Quizzes', icon: FiAward, count: '6 FAQs' },
+    { title: 'Courses & Tracks', icon: FiBookOpen, count: '8 FAQs' },
+    { title: 'Payments & Invoices', icon: FiCreditCard, count: '5 FAQs' },
+    { title: 'Certificates & Web3', icon: FiAward, count: '6 FAQs' },
     { title: 'Instructor Studio', icon: FiUserCheck, count: '5 FAQs' },
   ];
 
   const faqs = [
-    { cat: 'Courses', q: 'How do I enroll in a course?', a: 'Browse our catalog, click on your desired masterclass, and click "Sign In to Enroll". After logging in, enrollment is instant.' },
-    { cat: 'Account', q: 'How do I reset my password?', a: 'Click "Sign In" on the top navigation header and select "Forgot Password". A reset link will be sent to your registered email.' },
-    { cat: 'Certificates', q: 'How do I download my course completion certificate?', a: 'Once you complete 100% of course lessons and pass the final quiz with at least 80%, your certificate will unlock in your Student Dashboard.' },
-    { cat: 'Courses', q: 'Can I access courses on mobile devices?', a: 'Yes! EduSphere is built responsive for mobile, tablet, laptop, and desktop browsers.' },
-    { cat: 'Courses', q: 'Are assignments and quizzes mandatory?', a: 'Quizzes are required to earn certificates, but video lessons can be learned at your own pace.' },
-    { cat: 'Payments', q: 'What payment methods are supported?', a: 'EduSphere supports Credit/Debit Cards, UPI, Net Banking, and Razorpay.' },
-    { cat: 'Payments', q: 'How are payments processed?', a: 'All payments are processed securely via UPI, Net Banking, Credit/Debit cards, or Razorpay.' },
-    { cat: 'Instructor', q: 'How do I apply to become an instructor?', a: 'Click "Become Instructor" on the homepage or navigation menu and submit your credentials.' },
+    { cat: 'Courses', q: 'How do I enroll in a course on EduSphere?', a: 'Browse our catalog, click on your desired masterclass, and click "Sign In to Enroll". After authenticating into your student account, access is unlocked instantly.' },
+    { cat: 'Account', q: 'How do I reset my portal access credentials?', a: 'Click "Sign In" on the top navigation header and select "Forgot Password". A secure, time-bounded reset link will be sent to your registered email address.' },
+    { cat: 'Certificates', q: 'How do I download and share my verified completion certificate?', a: 'Once you complete 100% of course lessons and pass the final assessment with at least 80%, your certificate will automatically unlock in your Student Dashboard with PDF export and direct LinkedIn badge integration.' },
+    { cat: 'Courses', q: 'Can I access EduSphere live classes and sandbox on mobile devices?', a: 'Yes! EduSphere is engineered responsively for iOS, Android, iPadOS tablets, and all modern desktop web browsers.' },
+    { cat: 'Courses', q: 'Are assignments and quizzes mandatory for course progression?', a: 'Quizzes and milestone projects are required to earn verified certificates, but video lessons and coding sandboxes can be explored at your own custom pace.' },
+    { cat: 'Payments', q: 'What payment methods and gateways are supported?', a: 'EduSphere supports Credit/Debit Cards (Visa, Mastercard, Amex), UPI, Net Banking, and secure Razorpay gateway integrations.' },
+    { cat: 'Instructor', q: 'How do I apply to become an instructor or academic partner?', a: 'Click "Sign In", select Instructor role or reach out through our Contact page. Our curriculum review board will review your credentials within 48 hours.' },
   ];
 
   const filteredFaqs = faqs.filter(faq => {
@@ -60,207 +45,107 @@ export const FAQ: React.FC = () => {
     return matchesSearch && matchesCat;
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.name && formData.email && formData.message) {
-      setFormSubmitted(true);
-    }
-  };
-
   return (
-    <div className="space-y-16 py-8 overflow-hidden">
+    <div className="space-y-20 py-12 text-slate-900 dark:text-slate-100 overflow-hidden transition-colors duration-300">
       
       {/* 1. Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
-        <Badge variant="primary" size="md">24/7 Support Center</Badge>
-        <Heading1>How Can We Help You Today?</Heading1>
-        <Subtitle className="max-w-2xl mx-auto">
-          Explore our comprehensive Knowledge Base, reach out to our dedicated support team, or get answers to frequently asked questions.
-        </Subtitle>
+      <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 text-center space-y-4">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50/80 dark:bg-white/[0.06] border border-indigo-200/60 dark:border-white/[0.12] backdrop-blur-md text-xs font-semibold text-indigo-600 dark:text-indigo-300">
+          <HiSparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+          <span>Knowledge &amp; Resource Center</span>
+        </div>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white">
+          Frequently Asked Questions
+        </h1>
+        <p className="text-slate-600 dark:text-slate-300 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+          Quick answers to common questions about admissions, course streaming, assessments, certificates, and student tools.
+        </p>
       </section>
 
-      {/* 2. Contact Information Cards */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card hoverEffect className="flex items-center gap-4">
-          <div className="p-3 bg-brand-100 dark:bg-brand-950 text-brand-600 rounded-xl">
-            <FiMail className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-semibold uppercase">Email Us</p>
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">support@edusphere.com</p>
-          </div>
-        </Card>
-
-        <Card hoverEffect className="flex items-center gap-4">
-          <div className="p-3 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 rounded-xl">
-            <FiPhone className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-semibold uppercase">Call Us</p>
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">+1 (800) 555-EDUS</p>
-          </div>
-        </Card>
-
-        <Card hoverEffect className="flex items-center gap-4">
-          <div className="p-3 bg-amber-100 dark:bg-amber-950 text-amber-600 rounded-xl">
-            <FiMapPin className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-semibold uppercase">Headquarters</p>
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Tech Park, SF, CA</p>
-          </div>
-        </Card>
-
-        <Card hoverEffect className="flex items-center gap-4">
-          <div className="p-3 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 rounded-xl">
-            <FiClock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-semibold uppercase">Working Hours</p>
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Mon - Fri: 9am - 6pm</p>
-          </div>
-        </Card>
+      {/* 2. Contact Information Quick Strip */}
+      <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: 'Email Support', val: 'support@edusphere.edu', icon: FiMail, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-white/[0.06]' },
+          { label: 'Hotline', val: '+91 98765 43210', icon: FiPhone, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-white/[0.06]' },
+          { label: 'Campus HQ', val: 'Global Digital Center', icon: FiMapPin, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-white/[0.06]' },
+          { label: 'Support Window', val: '24/7 Global Desk', icon: FiClock, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-white/[0.06]' },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="p-6 rounded-3xl bg-white/85 dark:bg-[#0c1022]/80 border border-slate-200/80 dark:border-white/[0.1] backdrop-blur-xl shadow-md dark:shadow-none flex items-center gap-4">
+              <div className={`p-3 rounded-2xl ${item.bg} ${item.color}`}>
+                <Icon className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.label}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate mt-0.5">{item.val}</p>
+              </div>
+            </div>
+          );
+        })}
       </section>
 
-      {/* 3. Support Categories & Search */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      {/* 3. Support Categories */}
+      <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 space-y-8">
         <div className="text-center space-y-2">
-          <Badge variant="neutral">Knowledge Base</Badge>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Help Categories</h2>
+          <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Categories</span>
+          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">Browse by Topic</h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {supportCategories.map((cat) => {
             const Icon = cat.icon;
             return (
-              <Card key={cat.title} hoverEffect className="p-5 text-center space-y-2">
-                <div className="p-3 bg-brand-50 dark:bg-slate-800 text-brand-600 rounded-xl w-fit mx-auto">
-                  <Icon className="w-6 h-6" />
+              <TiltCard key={cat.title} tiltIntensity={8}>
+                <div className="p-6 text-center space-y-3 rounded-3xl bg-white/85 dark:bg-[#0c1022]/80 border border-slate-200/80 dark:border-white/[0.1] backdrop-blur-xl shadow-md dark:shadow-none h-full group">
+                  <div className="p-3 bg-indigo-50 dark:bg-white/[0.06] text-indigo-600 dark:text-indigo-400 rounded-2xl w-fit mx-auto group-hover:scale-110 transition-transform">
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">{cat.title}</h3>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">{cat.count}</span>
                 </div>
-                <h3 className="font-bold text-xs text-slate-900 dark:text-slate-100">{cat.title}</h3>
-                <span className="text-[10px] text-slate-400 block">{cat.count}</span>
-              </Card>
+              </TiltCard>
             );
           })}
         </div>
       </section>
 
       {/* 4. Frequently Asked Questions (FAQ) Section */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="text-center space-y-2">
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Frequently Asked Questions</h2>
-          <p className="text-xs text-slate-500">Quick answers to common questions about enrollment, certificates, and billing.</p>
-        </div>
-
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         {/* FAQ Search */}
         <div className="relative">
-          <FiSearch className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+          <FiSearch className="absolute left-4 top-3.5 w-5 h-5 text-indigo-500 dark:text-indigo-400" />
           <input
             type="text"
             value={faqSearch}
             onChange={(e) => setFaqSearch(e.target.value)}
-            placeholder="Search FAQs by keyword..."
-            className="w-full pl-11 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+            placeholder="Search questions by keyword or topic..."
+            className="w-full pl-12 pr-4 py-3.5 text-sm rounded-2xl border border-slate-200/90 dark:border-white/[0.12] bg-white/90 dark:bg-white/[0.05] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 backdrop-blur-xl shadow-md dark:shadow-none"
           />
         </div>
 
         {/* FAQ Accordion List */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filteredFaqs.map((faq, idx) => (
-            <Card
+            <div
               key={idx}
-              className="cursor-pointer space-y-2"
+              className="p-6 rounded-3xl bg-white/85 dark:bg-[#0c1022]/80 border border-slate-200/80 dark:border-white/[0.1] backdrop-blur-xl cursor-pointer space-y-3 transition-all hover:border-indigo-500/50 dark:hover:border-indigo-400/40 shadow-md dark:shadow-none"
               onClick={() => setOpenFaqIdx(openFaqIdx === idx ? null : idx)}
             >
-              <div className="flex justify-between items-center font-semibold text-sm text-slate-800 dark:text-slate-200">
-                <span className="flex items-center gap-2"><FiHelpCircle className="w-4 h-4 text-brand-500" /> {faq.q}</span>
-                <span>{openFaqIdx === idx ? '−' : '+'}</span>
+              <div className="flex justify-between items-center font-semibold text-base text-slate-900 dark:text-white">
+                <span className="flex items-center gap-3">
+                  <FiHelpCircle className="w-5 h-5 text-indigo-500 dark:text-indigo-400 shrink-0" /> {faq.q}
+                </span>
+                <span className="text-indigo-600 dark:text-indigo-400 font-mono text-xl shrink-0 ml-4">{openFaqIdx === idx ? '−' : '+'}</span>
               </div>
               {openFaqIdx === idx && (
-                <p className="text-xs text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800 leading-relaxed">
+                <p className="text-sm text-slate-600 dark:text-slate-300 pt-3 border-t border-slate-200/80 dark:border-white/[0.08] leading-relaxed">
                   {faq.a}
                 </p>
               )}
-            </Card>
+            </div>
           ))}
         </div>
-      </section>
-
-      {/* 5. Contact Form Section */}
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Card className="p-8 space-y-6">
-          <div className="text-center space-y-1">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Send Us a Message</h2>
-            <p className="text-xs text-slate-500">Have a specific question? Fill out the form below and our team will get back to you within 24 hours.</p>
-          </div>
-
-          {formSubmitted ? (
-            <div className="p-6 text-center space-y-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-              <FiCheckCircle className="w-10 h-10 text-emerald-500 mx-auto" />
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">Message Sent Successfully!</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400">Thank you for reaching out to EduSphere Support. We will respond shortly.</p>
-              <Button size="sm" variant="outline" onClick={() => setFormSubmitted(false)}>Send Another Message</Button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <TextInput
-                  label="Full Name"
-                  placeholder="Alex Johnson"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-                <TextInput
-                  label="Email Address"
-                  type="email"
-                  placeholder="alex@example.com"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <TextInput
-                  label="Phone Number"
-                  placeholder="+1 (555) 000-0000"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Category</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 px-3 py-2"
-                  >
-                    <option value="General">General Inquiry</option>
-                    <option value="Courses">Course & Enrollment</option>
-                    <option value="Technical">Technical Support</option>
-                    <option value="Billing">Billing & Invoices</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Your Message</label>
-                <textarea
-                  rows={4}
-                  required
-                  placeholder="How can we help you?"
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  className="w-full text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-3 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-              </div>
-
-              <Button type="submit" variant="primary" className="w-full py-2.5">
-                <FiSend className="w-4 h-4 mr-2" /> Send Message
-              </Button>
-            </form>
-          )}
-        </Card>
       </section>
 
     </div>

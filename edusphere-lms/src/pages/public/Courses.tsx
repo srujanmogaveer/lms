@@ -6,20 +6,13 @@ import {
   FiX, 
   FiChevronLeft, 
   FiChevronRight, 
-  FiCode,
-  FiCpu,
-  FiDatabase,
-  FiShield,
-  FiCloud,
-  FiBriefcase,
-  FiLayers
+  FiStar,
 } from 'react-icons/fi';
+import { HiSparkles } from 'react-icons/hi';
 import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { CourseCard } from '../../components/cards/CourseCard';
-import { Heading1, Subtitle } from '../../components/ui/Typography';
+import { TiltCard } from '../../components/public/TiltCard';
 import { courseService } from '../../services/courseService';
 import { categoryService } from '../../services/categoryService';
 import type { Course } from '../../types';
@@ -36,7 +29,7 @@ export const Courses: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-  // Debounce search input to eliminate intermediate query egress
+  // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -80,11 +73,11 @@ export const Courses: React.FC = () => {
   const quickFilterChips = [
     { id: 'all', label: 'All Courses' },
     { id: 'featured', label: 'Featured' },
-    { id: 'bestseller', label: 'Popular' },
-    { id: 'under50', label: 'Paid' },
+    { id: 'bestseller', label: 'Most Popular' },
+    { id: 'under50', label: 'Paid Tracks' },
   ];
 
-  // 3. Dynamic Course Catalog with React Query (scoped by filter params, 5-min staleTime)
+  // 3. Dynamic Course Catalog with React Query
   const queryParams = useMemo(() => {
     const params: Record<string, any> = {
       page: currentPage,
@@ -160,24 +153,27 @@ export const Courses: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const categoryIcons = [FiCode, FiCpu, FiDatabase, FiShield, FiCloud, FiBriefcase, FiLayers];
-
   return (
-    <div className="space-y-12 py-8 overflow-hidden">
+    <div className="space-y-16 py-12 text-slate-900 dark:text-slate-100 overflow-hidden transition-colors duration-300">
       
-      {/* 1. Hero Section */}
+      {/* 1. Header Banner */}
       <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 text-center space-y-4">
-        <Badge variant="primary" size="md">Catalog Explorer</Badge>
-        <Heading1>Explore Our Masterclass Catalog</Heading1>
-        <Subtitle className="max-w-2xl mx-auto">
-          Discover interactive, verified courses in full-stack engineering, systems architecture, cloud infrastructure, and modern data science.
-        </Subtitle>
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50/80 dark:bg-white/[0.06] border border-indigo-200/60 dark:border-white/[0.12] backdrop-blur-md text-xs font-semibold text-indigo-600 dark:text-indigo-300">
+          <HiSparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+          <span>Curated Tech Masterclasses</span>
+        </div>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white">
+          Explore Our Masterclass Catalog
+        </h1>
+        <p className="text-slate-600 dark:text-slate-300 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+          Industry-aligned curricula in Full-Stack Engineering, Generative AI, Cloud Systems, and Modern UI/UX Architecture.
+        </p>
       </section>
 
-      {/* 2. Interactive Search & Quick Filters */}
+      {/* 2. Interactive Search & Quick Filters Capsule */}
       <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 space-y-6">
         <div className="relative max-w-2xl mx-auto">
-          <FiSearch className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+          <FiSearch className="absolute left-4 top-3.5 w-5 h-5 text-indigo-500 dark:text-indigo-400" />
           <input
             type="text"
             value={searchTerm}
@@ -185,8 +181,8 @@ export const Courses: React.FC = () => {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            placeholder="Search courses by title or key topic..."
-            className="w-full pl-12 pr-4 py-3 text-sm rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="Search courses by title, keywords or technology..."
+            className="w-full pl-12 pr-10 py-3.5 text-sm rounded-2xl border border-slate-200/90 dark:border-white/[0.12] bg-white/90 dark:bg-white/[0.05] text-slate-900 dark:text-white placeholder-slate-400 shadow-lg dark:shadow-2xl backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/60 transition-all"
           />
           {searchTerm && (
             <button
@@ -194,24 +190,24 @@ export const Courses: React.FC = () => {
                 setSearchTerm('');
                 setCurrentPage(1);
               }}
-              className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600"
+              className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-700 dark:hover:text-white"
             >
               <FiX className="w-5 h-5" />
             </button>
           )}
         </div>
 
-        {/* Quick Filter Chips & Toolbar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-b border-slate-200 dark:border-slate-800 pb-4">
+        {/* Quick Filter Chips & Sort Toolbar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-b border-slate-200/80 dark:border-white/[0.08] pb-4">
           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             {quickFilterChips.map((chip) => (
               <button
                 key={chip.id}
                 onClick={() => handleChipSelect(chip.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
                   activeChip === chip.id
-                    ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'bg-gradient-to-r from-brand-600 to-purple-600 text-white shadow-md shadow-brand-500/25 border border-brand-400/30'
+                    : 'bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-white/[0.08] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/[0.08]'
                 }`}
               >
                 {chip.label}
@@ -222,17 +218,17 @@ export const Courses: React.FC = () => {
           <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
             <button
               onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
-              className="lg:hidden flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              className="lg:hidden flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-white"
             >
-              <FiFilter className="w-4 h-4" /> Filters
+              <FiFilter className="w-4 h-4 text-indigo-500 dark:text-indigo-400" /> Filters
             </button>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-medium">Sort by:</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sort by:</span>
               <select
                 value={sortBy}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                className="text-xs bg-white dark:bg-[#0b0e1f] border border-slate-200 dark:border-white/[0.12] rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
               >
                 <option value="popular">Most Popular</option>
                 <option value="rating">Highest Rated</option>
@@ -249,27 +245,27 @@ export const Courses: React.FC = () => {
       <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           
-          {/* Desktop & Mobile Filter Sidebar */}
-          <aside className={`${isMobileFilterOpen ? 'block' : 'hidden'} lg:block space-y-6 bg-white dark:bg-slate-900 p-4 lg:p-0 rounded-xl border lg:border-none border-slate-200 dark:border-slate-800`}>
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <FiFilter className="w-4 h-4 text-brand-600" /> Filter Courses
+          {/* Filter Sidebar (Frosted Glass Panel) */}
+          <aside className={`${isMobileFilterOpen ? 'block' : 'hidden'} lg:block space-y-6 rounded-3xl p-6 bg-white/85 dark:bg-[#0c1022]/80 border border-slate-200/80 dark:border-white/[0.1] backdrop-blur-2xl shadow-xl self-start sticky top-28`}>
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200/80 dark:border-white/[0.08]">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <FiFilter className="w-4 h-4 text-indigo-500 dark:text-indigo-400" /> Filter Catalog
               </h3>
-              <button onClick={clearFilters} className="text-xs text-brand-600 hover:underline">Reset</button>
+              <button onClick={clearFilters} className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold">Reset</button>
             </div>
 
             {/* Category Filter */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Category</label>
-              <div className="space-y-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Track Category</label>
+              <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
                 {categories.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => handleCategorySelect(cat)}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors capitalize ${
                       selectedCategory === cat
-                        ? 'bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 font-semibold'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        ? 'bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 font-semibold border border-brand-200 dark:border-brand-400/40'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     {cat}
@@ -279,17 +275,17 @@ export const Courses: React.FC = () => {
             </div>
 
             {/* Level Filter */}
-            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Difficulty Level</label>
+            <div className="space-y-2 pt-3 border-t border-slate-200/80 dark:border-white/[0.08]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Difficulty Level</label>
               <div className="space-y-1">
                 {levels.map((lvl) => (
                   <button
                     key={lvl}
                     onClick={() => handleLevelSelect(lvl)}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
                       selectedLevel === lvl
-                        ? 'bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 font-semibold'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        ? 'bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 font-semibold border border-brand-200 dark:border-brand-400/40'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     {lvl}
@@ -299,20 +295,22 @@ export const Courses: React.FC = () => {
             </div>
 
             {/* Rating Filter */}
-            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Minimum Rating</label>
+            <div className="space-y-2 pt-3 border-t border-slate-200/80 dark:border-white/[0.08]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Minimum Rating</label>
               <div className="space-y-1">
                 {[4.5, 4.0, 3.5].map((stars) => (
                   <button
                     key={stars}
                     onClick={() => handleRatingSelect(stars)}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between transition-colors ${
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
                       selectedRating === stars
-                        ? 'bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 font-semibold'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        ? 'bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 font-semibold border border-brand-200 dark:border-brand-400/40'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <span className="flex items-center gap-1">⭐ {stars} & up</span>
+                    <span className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
+                      <FiStar className="w-3.5 h-3.5 fill-amber-400" /> {stars} &amp; above
+                    </span>
                   </button>
                 ))}
               </div>
@@ -320,21 +318,21 @@ export const Courses: React.FC = () => {
           </aside>
 
           {/* Course Grid Area */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-8">
             {isLoading ? (
               /* Loading Skeletons */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div key={n} className="rounded-2xl p-5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse space-y-4">
-                    <div className="h-44 w-full bg-slate-200 dark:bg-slate-800 rounded-xl" />
+                  <div key={n} className="rounded-3xl p-5 border border-slate-200/80 dark:border-white/[0.08] bg-white/60 dark:bg-white/[0.04] backdrop-blur-xl animate-pulse space-y-4">
+                    <div className="h-44 w-full bg-slate-200 dark:bg-white/[0.08] rounded-2xl" />
                     <div className="space-y-2">
-                      <div className="h-4 w-3/4 bg-slate-200 dark:bg-slate-800 rounded" />
-                      <div className="h-3 w-full bg-slate-100 dark:bg-slate-800/60 rounded" />
-                      <div className="h-3 w-2/3 bg-slate-100 dark:bg-slate-800/60 rounded" />
+                      <div className="h-4 w-3/4 bg-slate-200 dark:bg-white/[0.08] rounded" />
+                      <div className="h-3 w-full bg-slate-100 dark:bg-white/[0.05] rounded" />
+                      <div className="h-3 w-2/3 bg-slate-100 dark:bg-white/[0.05] rounded" />
                     </div>
-                    <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded" />
-                      <div className="h-8 w-24 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+                    <div className="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-white/[0.08]">
+                      <div className="h-4 w-16 bg-slate-200 dark:bg-white/[0.08] rounded" />
+                      <div className="h-8 w-24 bg-slate-200 dark:bg-white/[0.08] rounded-xl" />
                     </div>
                   </div>
                 ))}
@@ -343,15 +341,17 @@ export const Courses: React.FC = () => {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {courses.map((course: Course) => (
-                    <CourseCard key={course.id} course={course} />
+                    <TiltCard key={course.id} tiltIntensity={6}>
+                      <CourseCard course={course} mode="public" />
+                    </TiltCard>
                   ))}
                 </div>
 
                 {/* Pagination Controls */}
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-8 border-t border-slate-200/80 dark:border-white/[0.08]">
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Showing <strong className="text-slate-700 dark:text-slate-200">{courses.length}</strong> of{' '}
-                    <strong className="text-slate-700 dark:text-slate-200">{totalCourses}</strong> published masterclasses
+                    Showing <strong className="text-slate-900 dark:text-white">{courses.length}</strong> of{' '}
+                    <strong className="text-slate-900 dark:text-white">{totalCourses}</strong> published masterclasses
                   </span>
 
                   <div className="flex items-center gap-2">
@@ -360,6 +360,7 @@ export const Courses: React.FC = () => {
                       variant="outline" 
                       disabled={currentPage <= 1 || isLoading}
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      className="border-slate-300 dark:border-white/[0.12] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
                     >
                       <FiChevronLeft className="w-4 h-4 mr-1" /> Previous
                     </Button>
@@ -371,6 +372,7 @@ export const Courses: React.FC = () => {
                       variant="outline" 
                       disabled={currentPage >= totalPages || isLoading}
                       onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      className="border-slate-300 dark:border-white/[0.12] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
                     >
                       Next <FiChevronRight className="w-4 h-4 ml-1" />
                     </Button>
@@ -391,80 +393,48 @@ export const Courses: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. Popular Categories Section */}
-      <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 space-y-8">
+      {/* 4. Featured Instructors Section */}
+      <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 space-y-8 pt-8">
         <div className="text-center space-y-2">
-          <Badge variant="neutral">Explore Domains</Badge>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Popular Learning Categories</h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {(categoryList.length > 0 ? categoryList.slice(0, 6) : []).map((cat, idx) => {
-            const Icon = categoryIcons[idx % categoryIcons.length];
-            return (
-              <Card 
-                key={cat.id || cat.name} 
-                hoverEffect 
-                className="flex items-center gap-4 cursor-pointer"
-                onClick={() => handleCategorySelect(cat.name)}
-              >
-                <div className="p-3.5 bg-brand-100 dark:bg-brand-950 text-brand-600 dark:text-brand-400 rounded-xl">
-                  <Icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 capitalize">{cat.name}</h3>
-                  <p className="text-xs text-slate-400">
-                    {cat.subcategories && cat.subcategories.length > 0 
-                      ? `${cat.subcategories.length} Specialized Tracks` 
-                      : 'Explore Catalog'}
-                  </p>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 5. Featured Instructors Section */}
-      <section className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 space-y-8">
-        <div className="text-center space-y-2">
-          <Badge variant="primary">World-Class Mentors</Badge>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Featured Instructors</h2>
+          <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">World-Class Mentors</span>
+          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">Learn From Industry Leaders</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
           {isInstructorsLoading ? (
             [1, 2].map((n) => (
-              <Card key={n} className="flex gap-4 items-center animate-pulse p-5">
-                <div className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 flex-shrink-0" />
+              <div key={n} className="flex gap-4 items-center animate-pulse p-6 rounded-3xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08]">
+                <div className="w-16 h-16 rounded-2xl bg-slate-200 dark:bg-white/[0.08] flex-shrink-0" />
                 <div className="space-y-2 w-full">
-                  <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
-                  <div className="h-3 w-24 bg-slate-100 dark:bg-slate-800 rounded" />
-                  <div className="h-3 w-48 bg-slate-100 dark:bg-slate-800 rounded" />
+                  <div className="h-4 w-32 bg-slate-200 dark:bg-white/[0.08] rounded" />
+                  <div className="h-3 w-24 bg-slate-100 dark:bg-white/[0.05] rounded" />
+                  <div className="h-3 w-48 bg-slate-100 dark:bg-white/[0.05] rounded" />
                 </div>
-              </Card>
+              </div>
             ))
           ) : (
             featuredInstructors.map((ins) => (
-              <Card key={ins.id} className="flex gap-4 items-center p-5">
-                <img 
-                  src={ins.photo} 
-                  alt={ins.name} 
-                  className="w-16 h-16 rounded-full object-cover border-2 border-brand-500 shadow-md bg-slate-100 dark:bg-slate-800 flex-shrink-0" 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(ins.name)}&background=4f46e5&color=fff&size=200`;
-                  }}
-                />
-                <div className="space-y-1 overflow-hidden">
-                  <h3 className="font-bold text-base text-slate-900 dark:text-slate-100 truncate">{ins.name}</h3>
-                  <p className="text-xs text-brand-600 dark:text-brand-400 font-medium truncate">{ins.role}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{ins.bio}</p>
-                  <div className="flex items-center gap-3 text-xs text-slate-400 pt-1">
-                    <span>Verified Faculty</span>
-                    {ins.qualification && <span>• {ins.qualification.toUpperCase()}</span>}
+              <TiltCard key={ins.id} tiltIntensity={6}>
+                <div className="flex gap-4 items-center p-6 rounded-3xl bg-white/85 dark:bg-[#0c1022]/80 border border-slate-200/80 dark:border-white/[0.1] backdrop-blur-xl shadow-lg dark:shadow-xl">
+                  <img 
+                    src={ins.photo} 
+                    alt={ins.name} 
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-indigo-500 shadow-md bg-slate-900 flex-shrink-0" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(ins.name)}&background=4f46e5&color=fff&size=200`;
+                    }}
+                  />
+                  <div className="space-y-1 overflow-hidden">
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white truncate">{ins.name}</h3>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium truncate">{ins.role}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1">{ins.bio}</p>
+                    <div className="flex items-center gap-3 text-xs text-slate-400 pt-1">
+                      <span>Verified Faculty</span>
+                      {ins.qualification && <span>• {ins.qualification.toUpperCase()}</span>}
+                    </div>
                   </div>
                 </div>
-              </Card>
+              </TiltCard>
             ))
           )}
         </div>

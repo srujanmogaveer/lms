@@ -25,9 +25,10 @@ export const StudentAssignments: React.FC = () => {
   const navigate = useNavigate();
   const { courseId } = useParams<{ courseId?: string }>();
 
-  // State Management
-  const [assignments, setAssignments] = useState<StudentAssignmentDetail[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // State Management with Instant Cache Initialization (0ms UI render)
+  const cachedAssignments = assignmentService.getCachedStudentEnrolledAssignments(courseId);
+  const [assignments, setAssignments] = useState<StudentAssignmentDetail[]>(() => (cachedAssignments as StudentAssignmentDetail[]) || []);
+  const [isLoading, setIsLoading] = useState(() => !cachedAssignments || cachedAssignments.length === 0);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -45,14 +46,17 @@ export const StudentAssignments: React.FC = () => {
   // Fetch real enrolled assignments from backend API
   const fetchStudentAssignments = useCallback(async () => {
     try {
-      setIsLoading(true);
+      const hasCachedData = Boolean(assignmentService.getCachedStudentEnrolledAssignments(courseId));
+      if (!hasCachedData) {
+        setIsLoading(true);
+      }
       setHasError(false);
       setErrorMessage('');
 
       const res = await assignmentService.getStudentEnrolledAssignments(courseId);
       if (res.success && Array.isArray(res.data)) {
         setAssignments(res.data);
-      } else {
+      } else if (!hasCachedData) {
         setAssignments([]);
         if (!res.success) {
           setHasError(true);
@@ -60,9 +64,10 @@ export const StudentAssignments: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setHasError(true);
-      setErrorMessage(err.message || 'Unable to connect to assignment server.');
-      // Do not clear existing cached data on network error
+      if (!assignmentService.getCachedStudentEnrolledAssignments(courseId)) {
+        setHasError(true);
+        setErrorMessage(err.message || 'Unable to connect to assignment server.');
+      }
     } finally {
       setIsLoading(false);
     }

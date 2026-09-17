@@ -23,6 +23,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { InstructorEarningsSection } from '../../components/instructor/InstructorEarningsSection';
 import { paymentService } from '../../services/paymentService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CoursePerformanceItem {
   id: string;
@@ -90,6 +91,7 @@ const defaultAnalyticsState: InstructorAnalyticsState = {
 
 export const InstructorRevenueAnalytics: React.FC = () => {
   const navigate = useNavigate();
+  const { currentUser, rawProfile } = useAuth();
 
   // Loading & Analytics Data State
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -100,12 +102,14 @@ export const InstructorRevenueAnalytics: React.FC = () => {
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('All');
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>('All');
 
-  // Toast Notification State
-  const [toast, setToast] = useState<{ message: string; type: 'info' | 'success' } | null>(null);
+  // Interactive Toast State
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'info' | 'error' } | null>(null);
 
-  const showToast = (message: string, type: 'info' | 'success' = 'success') => {
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
   };
 
   // Indian Rupee (₹) Currency Formatter with Indian Numbering System
@@ -201,9 +205,253 @@ export const InstructorRevenueAnalytics: React.FC = () => {
     return Math.max(maxVal, 5000);
   }, [topCourses]);
 
+  // Real Excel (CSV) Exporter
+  const exportToExcel = (customTitle?: string) => {
+    if (!data) return;
+    const instructorName = currentUser?.name || rawProfile?.fullName || 'Instructor';
+    const instructorEmail = currentUser?.email || rawProfile?.email || '';
+    const dateStr = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const lines: string[] = [];
+
+    // Title & Metadata
+    lines.push(`"EDUSPHERE LMS - INSTRUCTOR REVENUE & ANALYTICS REPORT"`);
+    lines.push(`"Instructor:","${instructorName}"`);
+    lines.push(`"Email:","${instructorEmail}"`);
+    lines.push(`"Generated On:","${dateStr}"`);
+    lines.push(`"Currency:","INR (₹)"`);
+    lines.push(``);
+
+    // Financial & Overview Summary
+    lines.push(`"--- FINANCIAL & OVERVIEW SUMMARY ---"`);
+    lines.push(`"Metric","Value"`);
+    lines.push(`"Total Gross Revenue (₹)","₹${data.overview.totalRevenue.toLocaleString('en-IN')}"`);
+    lines.push(`"Monthly Revenue (₹)","₹${data.overview.monthlyRevenue.toLocaleString('en-IN')}"`);
+    lines.push(`"Weekly Revenue (₹)","₹${data.overview.weeklyRevenue.toLocaleString('en-IN')}"`);
+    lines.push(`"Avg Revenue Per Course (₹)","₹${data.overview.averageRevenuePerCourse.toLocaleString('en-IN')}"`);
+    lines.push(`"Growth Rate (%)","${data.overview.growthPercentage}%"`);
+    lines.push(`"Total Published Courses","${data.overview.totalCourses}"`);
+    lines.push(`"Total Enrolled Students","${data.overview.totalStudents}"`);
+    lines.push(`"Active Students","${data.overview.activeStudents}"`);
+    lines.push(`"Course Completion Rate (%)","${data.studentPerformance.overallCourseCompletionRate}%"`);
+    lines.push(`"Avg Quiz Score (%)","${data.studentPerformance.averageQuizScore}%"`);
+    lines.push(`"Assignment Completion Rate (%)","${data.studentPerformance.assignmentCompletionRate}%"`);
+    lines.push(``);
+
+    // Monthly Revenue Trends
+    if (data.monthlyTrends && data.monthlyTrends.length > 0) {
+      lines.push(`"--- MONTHLY REVENUE & ENROLLMENT TRENDS ---"`);
+      lines.push(`"Month","Revenue (₹)","Enrollments"`);
+      data.monthlyTrends.forEach((m) => {
+        lines.push(`"${m.month}","₹${m.revenue.toLocaleString('en-IN')}","${m.enrollments}"`);
+      });
+      lines.push(``);
+    }
+
+    // Course Performance Table
+    lines.push(`"--- INDIVIDUAL COURSE PERFORMANCE ---"`);
+    lines.push(`"Course Name","Enrolled Students","Completion Rate (%)","Avg Rating (out of 5)","Total Gross Revenue (₹)"`);
+    (data.coursePerformance || []).forEach((c) => {
+      lines.push(
+        `"${c.courseTitle.replace(/"/g, '""')}","${c.studentsEnrolled}","${c.completionRate}%","${c.averageRating.toFixed(1)}","₹${c.revenue.toLocaleString('en-IN')}"`
+      );
+    });
+
+    const csvContent = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    const fileName = `EduSphere_Revenue_Analytics_${(customTitle || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Excel/CSV report exported and downloaded successfully!', 'success');
+  };
+
+  // Real PDF Exporter (Printable Document Statement)
+  const exportToPDF = (customTitle?: string) => {
+    if (!data) return;
+    const instructorName = currentUser?.name || rawProfile?.fullName || 'Instructor';
+    const instructorEmail = currentUser?.email || rawProfile?.email || '';
+    const dateStr = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const reportTitle = customTitle ? `${customTitle} Report` : 'Instructor Revenue & Analytics Statement';
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast('Please allow popups to export the PDF report', 'error');
+      return;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>${reportTitle} - EduSphere</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+          body { padding: 32px; color: #1e293b; background: #fff; font-size: 13px; line-height: 1.5; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #7c3aed; padding-bottom: 16px; margin-bottom: 24px; }
+          .brand { font-size: 24px; font-weight: 800; color: #7c3aed; letter-spacing: -0.5px; }
+          .brand span { color: #0f172a; }
+          .doc-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+          .meta-info { text-align: right; font-size: 11px; color: #64748b; }
+          .meta-info strong { color: #1e293b; }
+          .grid-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+          .summary-card { padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+          .summary-card .label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+          .summary-card .value { font-size: 18px; font-weight: 800; color: #0f172a; }
+          .summary-card .value.green { color: #059669; }
+          .summary-card .value.purple { color: #7c3aed; }
+          h2 { font-size: 14px; font-weight: 700; color: #0f172a; margin: 20px 0 8px 0; border-left: 4px solid #7c3aed; padding-left: 8px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+          th { background: #f1f5f9; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; padding: 10px 12px; border: 1px solid #cbd5e1; text-align: left; }
+          td { padding: 9px 12px; border: 1px solid #e2e8f0; }
+          tr:nth-child(even) { background: #fafafa; }
+          .text-right { text-align: right; }
+          .footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
+          @media print {
+            body { padding: 16px; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="brand">EduSphere <span>LMS</span></div>
+            <div class="doc-title">${reportTitle}</div>
+          </div>
+          <div class="meta-info">
+            <p><strong>Instructor:</strong> ${instructorName}</p>
+            <p><strong>Email:</strong> ${instructorEmail}</p>
+            <p><strong>Generated Date:</strong> ${dateStr}</p>
+            <p><strong>Currency:</strong> INR (₹)</p>
+          </div>
+        </div>
+
+        <div class="grid-summary">
+          <div class="summary-card">
+            <div class="label">Total Gross Revenue</div>
+            <div class="value green">₹${data.overview.totalRevenue.toLocaleString('en-IN')}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Monthly Revenue</div>
+            <div class="value purple">₹${data.overview.monthlyRevenue.toLocaleString('en-IN')}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Total Enrollments</div>
+            <div class="value">${data.overview.totalStudents}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Course Completion</div>
+            <div class="value">${data.studentPerformance.overallCourseCompletionRate}%</div>
+          </div>
+        </div>
+
+        <h2>Course Performance & Earnings Breakdown</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Course Name</th>
+              <th class="text-right">Students</th>
+              <th class="text-right">Completion</th>
+              <th class="text-right">Rating</th>
+              <th class="text-right">Gross Revenue (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(data.coursePerformance || [])
+              .map(
+                (c) => `
+              <tr>
+                <td style="font-weight:600;">${c.courseTitle}</td>
+                <td class="text-right">${c.studentsEnrolled}</td>
+                <td class="text-right">${c.completionRate}%</td>
+                <td class="text-right">${c.averageRating.toFixed(1)} / 5.0</td>
+                <td class="text-right" style="font-weight:700; color:#059669;">₹${c.revenue.toLocaleString('en-IN')}</td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
+
+        ${
+          data.monthlyTrends && data.monthlyTrends.length > 0
+            ? `
+          <h2>Monthly Performance History</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th class="text-right">Enrollments</th>
+                <th class="text-right">Revenue (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.monthlyTrends
+                .map(
+                  (m) => `
+                <tr>
+                  <td style="font-weight:600;">${m.month}</td>
+                  <td class="text-right">${m.enrollments}</td>
+                  <td class="text-right" style="font-weight:700; color:#059669;">₹${m.revenue.toLocaleString('en-IN')}</td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>
+        `
+            : ''
+        }
+
+        <div class="footer">
+          <span>Confidential &bull; Generated by EduSphere Learning Management System</span>
+          <span>Page 1 of 1</span>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    showToast('Opening PDF Print Preview...', 'success');
+  };
+
   // Handle Export Action
-  const handleExportReport = (format: 'PDF' | 'Excel') => {
-    showToast(`Generating and exporting ${format} Revenue & Analytics report...`, 'success');
+  const handleExportReport = (format: 'PDF' | 'Excel', customTitle?: string) => {
+    if (format === 'PDF') {
+      exportToPDF(customTitle);
+    } else {
+      exportToExcel(customTitle);
+    }
   };
 
   return (
@@ -241,6 +489,24 @@ export const InstructorRevenueAnalytics: React.FC = () => {
 
         {/* Quick Actions Header Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExportReport('PDF')}
+            className="flex items-center gap-1.5 text-xs font-bold border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+            title="Download PDF Financial Report"
+          >
+            <FiDownload className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Export PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExportReport('Excel')}
+            className="flex items-center gap-1.5 text-xs font-bold border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+            title="Download Excel / CSV SpreadSheet"
+          >
+            <FiDownload className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Export Excel
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -721,19 +987,67 @@ export const InstructorRevenueAnalytics: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
-            <span className="font-bold text-slate-900 dark:text-slate-100 block">Revenue Summary</span>
-            <p className="text-slate-500 text-[11px]">Monthly earnings breakdown, tax deductions, and payout history.</p>
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3">
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 dark:text-slate-100 block">Revenue Summary</span>
+              <p className="text-slate-500 text-[11px]">Monthly gross revenue breakdown, earnings, and financial totals.</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => handleExportReport('PDF', 'Revenue Summary')}
+                className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 text-[10px] font-bold hover:bg-rose-100 flex items-center gap-1"
+              >
+                <FiDownload className="w-3 h-3" /> PDF
+              </button>
+              <button
+                onClick={() => handleExportReport('Excel', 'Revenue Summary')}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 text-[10px] font-bold hover:bg-emerald-100 flex items-center gap-1"
+              >
+                <FiDownload className="w-3 h-3" /> Excel
+              </button>
+            </div>
           </div>
 
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
-            <span className="font-bold text-slate-900 dark:text-slate-100 block">Enrollment Summary</span>
-            <p className="text-slate-500 text-[11px]">Student registration timelines, referral sources, and course retention.</p>
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3">
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 dark:text-slate-100 block">Enrollment Summary</span>
+              <p className="text-slate-500 text-[11px]">Student enrollment distribution, active learners, and growth rates.</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => handleExportReport('PDF', 'Enrollment Summary')}
+                className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 text-[10px] font-bold hover:bg-rose-100 flex items-center gap-1"
+              >
+                <FiDownload className="w-3 h-3" /> PDF
+              </button>
+              <button
+                onClick={() => handleExportReport('Excel', 'Enrollment Summary')}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 text-[10px] font-bold hover:bg-emerald-100 flex items-center gap-1"
+              >
+                <FiDownload className="w-3 h-3" /> Excel
+              </button>
+            </div>
           </div>
 
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
-            <span className="font-bold text-slate-900 dark:text-slate-100 block">Course Summary</span>
-            <p className="text-slate-500 text-[11px]">Completion rates, student ratings, and quiz success benchmarks.</p>
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3">
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 dark:text-slate-100 block">Course Summary</span>
+              <p className="text-slate-500 text-[11px]">Completion rates, student ratings, and per-course revenue benchmarks.</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => handleExportReport('PDF', 'Course Performance')}
+                className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 text-[10px] font-bold hover:bg-rose-100 flex items-center gap-1"
+              >
+                <FiDownload className="w-3 h-3" /> PDF
+              </button>
+              <button
+                onClick={() => handleExportReport('Excel', 'Course Performance')}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 text-[10px] font-bold hover:bg-emerald-100 flex items-center gap-1"
+              >
+                <FiDownload className="w-3 h-3" /> Excel
+              </button>
+            </div>
           </div>
         </div>
       </Card>

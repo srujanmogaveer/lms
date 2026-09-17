@@ -5,7 +5,6 @@ import { StudentSidebar } from '../components/navigation/StudentSidebar';
 import { ThemeToggle } from '../components/common/ThemeToggle';
 import { UserDropdown } from '../components/navigation/UserDropdown';
 import { NotificationPanel } from '../components/navigation/NotificationPanel';
-import { Breadcrumb } from '../components/navigation/Breadcrumb';
 import { GlobalSearchModal } from '../components/navigation/GlobalSearchModal';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useWishlistCart } from '../contexts/WishlistCartContext';
@@ -135,8 +134,6 @@ export const StudentLayout: React.FC = () => {
         />
 
         <div className="flex-1 flex flex-col min-w-0">
-          <Breadcrumb />
-
           <main className="flex-1 overflow-y-auto p-4 sm:p-6">
             <Outlet />
           </main>

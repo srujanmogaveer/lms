@@ -677,7 +677,7 @@ export const StudentLearningPlayer: React.FC = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <VideoLessonPlayer lesson={activeLesson} />
+                  <VideoLessonPlayer lesson={activeLesson} showDetailsBanner={true} />
                 </motion.div>
               )}
 

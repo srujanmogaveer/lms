@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FiMail,
@@ -9,12 +8,10 @@ import {
   FiClock,
   FiAlertCircle,
   FiSend,
-  FiMessageSquare,
   FiTrash2,
   FiExternalLink,
   FiUser,
   FiPhone,
-  FiTag,
   FiCalendar,
   FiFilter
 } from 'react-icons/fi';
@@ -28,7 +25,6 @@ import { contactService, type ContactInquiryItem } from '../../services/contactS
 import { showSuccessToast, showErrorAlert, showConfirmAlert } from '../../utils/swalAlerts';
 
 export const AdminInquiriesManagement: React.FC = () => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,23 +114,30 @@ export const AdminInquiriesManagement: React.FC = () => {
   };
 
   const handleReplyByEmail = (inquiry: ContactInquiryItem) => {
-    const subject = encodeURIComponent(`Re: [EduSphere Support] ${inquiry.subject || inquiry.category + ' Inquiry'}`);
-    const body = encodeURIComponent(
-      `Hi ${inquiry.name},\n\nThank you for reaching out to EduSphere Support regarding your inquiry about ${inquiry.category}.\n\n` +
-      `Original Inquiry:\n"${inquiry.message}"\n\n--\nBest regards,\nEduSphere Administration Team\nsupport@edusphere.com`
-    );
-    window.open(`mailto:${inquiry.email}?subject=${subject}&body=${body}`, '_blank');
+    const clientEmail = encodeURIComponent(inquiry.email.trim());
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${clientEmail}`;
+    window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+
+    // Auto-mark inquiry as resolved upon replying
+    if (inquiry.status !== 'resolved' && inquiry.status !== 'closed') {
+      updateMutation.mutate({
+        id: inquiry.id,
+        status: 'resolved',
+        notes: inquiry.adminNotes || 'Replied to client via Gmail',
+      });
+      setEditStatus('resolved');
+    }
   };
 
-  const handleDelete = (inquiry: ContactInquiryItem) => {
-    showConfirmAlert({
-      title: 'Delete Inquiry?',
-      text: `Are you sure you want to delete the message from ${inquiry.name}? This action cannot be undone.`,
-      confirmButtonText: 'Yes, Delete',
-      onConfirm: () => {
-        deleteMutation.mutate(inquiry.id);
-      },
-    });
+  const handleDelete = async (inquiry: ContactInquiryItem) => {
+    const confirmed = await showConfirmAlert(
+      'Delete Inquiry?',
+      `Are you sure you want to delete the message from ${inquiry.name}? This action cannot be undone.`,
+      'Yes, Delete'
+    );
+    if (confirmed) {
+      deleteMutation.mutate(inquiry.id);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -334,7 +337,7 @@ export const AdminInquiriesManagement: React.FC = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => handleReplyByEmail(inquiry)}
-                          title="Reply via Email"
+                          title="Reply via Gmail"
                         >
                           <FiSend className="w-3.5 h-3.5 text-brand-600" />
                         </Button>
@@ -442,27 +445,16 @@ export const AdminInquiriesManagement: React.FC = () => {
             {/* Direct Action Response Buttons */}
             <div className="p-4 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 space-y-3">
               <h4 className="font-bold text-xs text-rose-600 dark:text-rose-400 uppercase tracking-wider">
-                Direct Response Channels
+                Direct Response
               </h4>
-              <div className="flex flex-wrap gap-3">
+              <div>
                 <Button
                   size="sm"
                   variant="primary"
                   className="bg-rose-600 hover:bg-rose-700 text-white"
                   onClick={() => handleReplyByEmail(selectedInquiry)}
                 >
-                  <FiSend className="w-4 h-4 mr-1.5" /> 1-Click Email Reply
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    navigate('/admin/chat');
-                  }}
-                >
-                  <FiMessageSquare className="w-4 h-4 mr-1.5" /> Open In-App Chat
+                  <FiSend className="w-4 h-4 mr-1.5" /> 1-Click Gmail Reply
                 </Button>
               </div>
             </div>

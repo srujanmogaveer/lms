@@ -2,10 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiStar, FiClock, FiBookOpen, FiHeart, FiShoppingCart, FiPlayCircle, FiAward, FiEye, FiCheckCircle } from 'react-icons/fi';
 import type { Course } from '../../types';
-import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
+import { formatCourseDurationShort } from '../../utils/formatters';
 
 export interface CourseCardProps {
   course: Course;
@@ -54,7 +54,14 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   return (
-    <Card hoverEffect className="flex flex-col justify-between h-full space-y-4 p-5 relative group border border-slate-200 dark:border-slate-800">
+    <div
+      onClick={handleCardClick}
+      className={`flex flex-col justify-between h-full space-y-4 p-5 rounded-2xl transition-all duration-300 cursor-pointer ${
+        mode === 'public'
+          ? 'bg-white/90 dark:bg-[#0c1022]/80 border border-slate-200/90 dark:border-white/[0.12] hover:border-indigo-500/50 dark:hover:border-indigo-400/50 backdrop-blur-xl shadow-md dark:shadow-xl hover:shadow-xl dark:hover:shadow-2xl hover:shadow-indigo-500/10'
+          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md'
+      }`}
+    >
       <div className="space-y-3">
         {/* Course Thumbnail Container */}
         <div className="relative overflow-hidden rounded-xl h-44 w-full bg-slate-100 dark:bg-slate-800">
@@ -108,7 +115,10 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           {/* Quick Wishlist Icon Overlay for Student Mode */}
           {mode === 'student' && enrollmentStatus === 'not_enrolled' && onWishlistToggle && (
             <button
-              onClick={() => onWishlistToggle(course)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onWishlistToggle(course);
+              }}
               className="absolute bottom-2.5 right-2.5 p-2 rounded-full bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 hover:text-rose-600 shadow-md transition-all backdrop-blur-sm"
               aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
               title={isInWishlist ? 'In Wishlist' : 'Add to Wishlist'}
@@ -125,7 +135,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           </span>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <FiClock className="w-3.5 h-3.5" /> {course.durationHours}h
+              <FiClock className="w-3.5 h-3.5" /> {formatCourseDurationShort(course.durationHours)}
             </span>
             <span className="flex items-center gap-1">
               <FiBookOpen className="w-3.5 h-3.5" /> {course.lessonsCount} lessons
@@ -189,14 +199,20 @@ export const CourseCard: React.FC<CourseCardProps> = ({
                   size="sm"
                   variant="primary"
                   className="flex-1 justify-center bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => onViewCertificate && onViewCertificate(course)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewCertificate && onViewCertificate(course);
+                  }}
                 >
                   <FiAward className="w-4 h-4 mr-1.5" /> View Certificate
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleCardClick}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCardClick(e);
+                  }}
                 >
                   <FiEye className="w-4 h-4" />
                 </Button>
@@ -207,14 +223,20 @@ export const CourseCard: React.FC<CourseCardProps> = ({
                   size="sm"
                   variant="primary"
                   className="flex-1 justify-center bg-brand-600 hover:bg-brand-700 text-white"
-                  onClick={() => onContinueLearning ? onContinueLearning(course) : handleCardClick()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onContinueLearning ? onContinueLearning(course) : handleCardClick(e);
+                  }}
                 >
                   <FiPlayCircle className="w-4 h-4 mr-1.5" /> Continue Learning
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleCardClick}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCardClick(e);
+                  }}
                 >
                   <FiEye className="w-4 h-4" />
                 </Button>
@@ -226,7 +248,10 @@ export const CourseCard: React.FC<CourseCardProps> = ({
                   size="sm"
                   variant={isInCart ? 'secondary' : 'primary'}
                   className={`flex-1 justify-center ${isInCart ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
-                  onClick={() => onCartToggle && onCartToggle(course)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCartToggle && onCartToggle(course);
+                  }}
                 >
                   <FiShoppingCart className="w-3.5 h-3.5 mr-1" />
                   {isInCart ? 'In Cart' : 'Add to Cart'}
@@ -236,7 +261,10 @@ export const CourseCard: React.FC<CourseCardProps> = ({
                   size="sm"
                   variant="outline"
                   className={isInWishlist ? 'text-rose-600 border-rose-300' : ''}
-                  onClick={() => onWishlistToggle && onWishlistToggle(course)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onWishlistToggle && onWishlistToggle(course);
+                  }}
                   aria-label="Wishlist"
                   title="Wishlist"
                 >
@@ -246,7 +274,10 @@ export const CourseCard: React.FC<CourseCardProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleCardClick}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCardClick(e);
+                  }}
                 >
                   <FiEye className="w-3.5 h-3.5" />
                 </Button>
@@ -259,12 +290,19 @@ export const CourseCard: React.FC<CourseCardProps> = ({
             <span className="text-sm font-extrabold text-slate-900 dark:text-slate-100 font-mono">
               ₹{currentPrice.toLocaleString('en-IN')}
             </span>
-            <Button size="sm" variant="outline" onClick={handleCardClick}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCardClick(e);
+              }}
+            >
               {progress !== undefined ? 'Continue' : 'View Course'}
             </Button>
           </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 };

@@ -161,35 +161,24 @@ export const LiveClassDetailsModal: React.FC<LiveClassDetailsModalProps> = ({
           </div>
         )}
 
-        {/* Recording Preview Box if completed */}
-        {status === 'completed' && (
+        {/* Recording Preview Box if completed and available */}
+        {status === 'completed' && isRecordingAvailable && recordingUrl && (
           <div className="space-y-2">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block flex items-center gap-1.5">
               <FiPlayCircle className="w-4 h-4 text-purple-600" />
               <span>Session Video Recording</span>
             </span>
 
-            {isRecordingAvailable && recordingUrl ? (
-              <div className="rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-md">
-                <video
-                  controls
-                  poster="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800"
-                  className="w-full h-56 object-cover"
-                >
-                  <source src={recordingUrl} type="video/mp4" />
-                  Your browser does not support HTML5 video playback.
-                </video>
-              </div>
-            ) : (
-              <div className="p-4 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 text-center space-y-1">
-                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Recording Processing In Progress
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  The session recording will be published here automatically within 24 hours of completion.
-                </p>
-              </div>
-            )}
+            <div className="rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-md">
+              <video
+                controls
+                poster="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800"
+                className="w-full h-56 object-cover"
+              >
+                <source src={recordingUrl} type="video/mp4" />
+                Your browser does not support HTML5 video playback.
+              </video>
+            </div>
           </div>
         )}
 
@@ -279,17 +268,7 @@ export const LiveClassDetailsModal: React.FC<LiveClassDetailsModalProps> = ({
               className="bg-brand-600 hover:bg-brand-700 text-white font-bold flex items-center gap-2 text-xs"
             >
               <FiVideo className="w-4 h-4" />
-              <span>
-                {platform === 'Jitsi Meet'
-                  ? 'Join In-App Class'
-                  : platform === 'Google Meet'
-                  ? 'Join Google Meet'
-                  : platform === 'Microsoft Teams'
-                  ? 'Join MS Teams'
-                  : platform === 'Zoom'
-                  ? 'Join Zoom'
-                  : 'Join Class'}
-              </span>
+              <span>Join Live Classroom</span>
             </Button>
           )}
         </div>

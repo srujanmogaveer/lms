@@ -25,9 +25,10 @@ export const StudentQuizzes: React.FC = () => {
   const [searchParams] = useSearchParams();
   const courseIdParam = searchParams.get('courseId');
 
-  // Core Real Datasets State
-  const [quizzes, setQuizzes] = useState<StudentQuizDetail[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Core Real Datasets State with Instant Cache Initialization (0ms UI render)
+  const cachedQuizzes = quizService.getCachedStudentEnrolledQuizzes(courseIdParam || undefined);
+  const [quizzes, setQuizzes] = useState<StudentQuizDetail[]>(() => cachedQuizzes || []);
+  const [isLoading, setIsLoading] = useState(() => !cachedQuizzes || cachedQuizzes.length === 0);
   const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
 
   // View Mode: 'dashboard' | 'attempt' | 'results'
@@ -74,7 +75,10 @@ export const StudentQuizzes: React.FC = () => {
   // Load Real Quizzes from Backend
   const loadQuizzes = async () => {
     try {
-      setIsLoading(true);
+      const hasCached = Boolean(quizService.getCachedStudentEnrolledQuizzes(courseIdParam || undefined));
+      if (!hasCached) {
+        setIsLoading(true);
+      }
       const res = await quizService.getStudentEnrolledQuizzes(courseIdParam || undefined);
       if (res.success && Array.isArray(res.data)) {
         setQuizzes(res.data);
@@ -85,11 +89,13 @@ export const StudentQuizzes: React.FC = () => {
             setFilters((prev) => ({ ...prev, course: matchingQuiz.courseTitle }));
           }
         }
-      } else {
+      } else if (!hasCached) {
         setQuizzes([]);
       }
     } catch {
-      setQuizzes([]);
+      if (!quizService.getCachedStudentEnrolledQuizzes(courseIdParam || undefined)) {
+        setQuizzes([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -301,8 +307,9 @@ export const StudentQuizzes: React.FC = () => {
           return {
             ...q,
             userSelectedOptionId: ans ? ans.answer : q.userSelectedOptionId,
-            correctOptionId: ans?.correctOptionId || (ans?.isCorrect ? (q.userSelectedOptionId as string) : ''),
+            correctOptionId: ans?.correctOptionId || (ans?.isCorrect ? (q.userSelectedOptionId as any) : ''),
             correctAnswer: ans?.correctAnswer,
+            isAnswerCorrect: ans ? ans.isCorrect : undefined,
           };
         });
 

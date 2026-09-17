@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   FiVideo, FiArrowLeft, FiMessageSquare, FiThumbsUp, FiSend,
@@ -15,7 +15,7 @@ import {
 } from "../../services/liveClassService";
 import { showConfirmAlert, showErrorAlert, showSuccessAlert } from "../../utils/swalAlerts";
 import { supabase } from "../../lib/supabase";
-import { JitsiIframe } from "./JitsiContainer";
+import { LiveKitClassroom } from "./LiveKitClassroom";
 
 export const InAppLiveClassRoom: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +23,8 @@ export const InAppLiveClassRoom: React.FC = () => {
   const { currentUser, role } = useAuth();
 
   const [classData, setClassData] = useState<BackendLiveClass | null>(null);
+  const [livekitToken, setLivekitToken] = useState<string | undefined>(undefined);
+  const [livekitServerUrl, setLivekitServerUrl] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -43,21 +45,26 @@ export const InAppLiveClassRoom: React.FC = () => {
 
   const isInstructor = role === "instructor" || role === "admin";
 
-  const jitsiUser = useMemo(() => ({
-    displayName: currentUser?.name || (currentUser as any)?.fullName || currentUser?.email || (isInstructor ? "Instructor" : "Student"),
-    email: currentUser?.email || "",
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), []);
+  const userDisplayName = useMemo(() => {
+    return currentUser?.name || (currentUser as any)?.fullName || currentUser?.email || (isInstructor ? "Instructor" : "Student");
+  }, [currentUser, isInstructor]);
 
   const participantLeaveCalledRef = useRef(false);
 
-  // 1. Load class data
+  // 1. Load class data and LiveKit credentials
   const loadClassData = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      await liveClassService.joinLiveClass(id);
+      const joinRes = await liveClassService.joinLiveClass(id);
+      if (joinRes.token) {
+        setLivekitToken(joinRes.token);
+      }
+      if (joinRes.serverUrl) {
+        setLivekitServerUrl(joinRes.serverUrl);
+      }
+
       let data: BackendLiveClass;
       if (isInstructor) {
         data = await liveClassService.getInstructorLiveClassDetails(id);
@@ -333,9 +340,16 @@ export const InAppLiveClassRoom: React.FC = () => {
       {/* Main Workspace */}
       <div className="flex-1 flex overflow-hidden relative">
 
-        {/* Jitsi Video */}
-        <div className="flex-1 h-full bg-black relative">
-          <JitsiIframe roomName={roomName} displayName={jitsiUser.displayName} email={jitsiUser.email} isHost={isInstructor} onLeft={handleLeaveRoom} />
+        {/* LiveKit Video Workspace */}
+        <div className="flex-1 h-full bg-slate-950 relative overflow-hidden">
+          <LiveKitClassroom
+            roomName={roomName}
+            token={livekitToken}
+            serverUrl={livekitServerUrl}
+            displayName={userDisplayName}
+            isHost={isInstructor}
+            onLeave={handleLeaveRoom}
+          />
         </div>
 
         {/* Q&A Panel */}

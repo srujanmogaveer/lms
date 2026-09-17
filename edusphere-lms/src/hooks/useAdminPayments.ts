@@ -6,6 +6,7 @@ import type {
   InstructorEarningRecord,
   InstructorPayoutRecord,
   PaymentHistoryRecord,
+  PayoutStatusType,
 } from '../data/paymentsData';
 
 export interface AdminPaymentsData {
@@ -114,8 +115,29 @@ export async function fetchAdminPaymentsData(): Promise<AdminPaymentsData> {
     const pendingAmount = Number(
       ie.pendingBalanceINR !== undefined ? ie.pendingBalanceINR : ie.instructorEarningsINR || 0
     );
-    const status =
-      ie.payoutStatus || (pendingAmount === 0 && (ie.instructorEarningsINR || 0) > 0 ? 'Paid' : 'Pending');
+    const totalPaid = Number(ie.totalPaidAmountINR || 0);
+
+    let status: PayoutStatusType = 'No Dues';
+    if (pendingAmount > 0) {
+      status = 'Pending';
+    } else if (totalPaid > 0) {
+      status = 'Settled';
+    } else {
+      status = 'No Dues';
+    }
+
+    // Determine clean last payout date (only when actual disbursement happened)
+    let lastDate = '—';
+    if (payoutInfo?.lastPayoutDate) {
+      lastDate = payoutInfo.lastPayoutDate;
+    } else if (Array.isArray(payoutInfo?.payoutHistory) && payoutInfo.payoutHistory.length > 0) {
+      const sorted = [...payoutInfo.payoutHistory].sort((a: any, b: any) =>
+        new Date(b.paymentDate || b.createdAt || 0).getTime() - new Date(a.paymentDate || a.createdAt || 0).getTime()
+      );
+      if (sorted[0]?.paymentDate) {
+        lastDate = sorted[0].paymentDate;
+      }
+    }
 
     return {
       id: `payout-${ie.instructorId}`,
@@ -125,10 +147,7 @@ export async function fetchAdminPaymentsData(): Promise<AdminPaymentsData> {
       payoutMethod: method,
       accountDetails: details,
       amountPayableINR: pendingAmount,
-      lastPaymentDate:
-        payoutInfo?.lastPayoutDate ||
-        payoutInfo?.lastUpdated ||
-        new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      lastPaymentDate: lastDate,
       payoutStatus: status,
       hasValidPayoutDetails,
     };

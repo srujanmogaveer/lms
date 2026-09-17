@@ -12,6 +12,7 @@ import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import type { Course } from '../../types';
+import { formatCourseDuration } from '../../utils/formatters';
 
 interface CartItemCardProps {
   course: Course;
@@ -93,7 +94,7 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
 
             <div className="flex items-center gap-1">
               <FiClock className="w-3.5 h-3.5 text-brand-500" />
-              <span>{course.durationHours} hours total</span>
+              <span>{formatCourseDuration(course.durationHours)} total</span>
             </div>
 
             <div className="flex items-center gap-1">

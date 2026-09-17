@@ -497,6 +497,53 @@ export class QuizService {
     return this.formatQuestion(newQ);
   }
 
+  public async createQuestionsBatch(
+    authUserId: string,
+    quizId: string,
+    dtos: CreateQuestionDto[]
+  ): Promise<QuizQuestion[]> {
+    if (!dtos || dtos.length === 0) return [];
+
+    const quiz = await this.getQuizById(authUserId, quizId, 'Instructor');
+    await this.verifyQuizCourseOwnership(authUserId, quiz.courseId, true);
+
+    const { data: lastQ } = await supabaseAdmin
+      .from('quiz_questions')
+      .select('position')
+      .eq('quiz_id', quizId)
+      .order('position', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const startPosition = (lastQ?.position || 0) + 1;
+
+    const rowsToInsert = dtos.map((dto, idx) => {
+      this.validateQuestionData(dto.questionType, dto.options, dto.correctAnswer, dto.points);
+      return {
+        quiz_id: quizId,
+        question_text: dto.questionText.trim(),
+        question_type: dto.questionType,
+        options: dto.options || [],
+        correct_answer: dto.correctAnswer || null,
+        points: dto.points ?? 10.0,
+        explanation: dto.explanation || null,
+        position: dto.position !== undefined ? dto.position : startPosition + idx,
+      };
+    });
+
+    const { data: created, error } = await supabaseAdmin
+      .from('quiz_questions')
+      .insert(rowsToInsert)
+      .select('*')
+      .order('position', { ascending: true });
+
+    if (error || !created) {
+      throw ApiError.internal(`Failed to create questions batch: ${error?.message}`);
+    }
+
+    return created.map((q) => this.formatQuestion(q));
+  }
+
   public async updateQuestion(
     authUserId: string,
     questionId: string,
@@ -924,10 +971,14 @@ export class QuizService {
     const questionsMap = new Map<string, any>();
     (questions || []).forEach((q: any) => {
       let opts = typeof q.options === 'string' ? JSON.parse(q.options) : q.options || [];
+      const correctOpts = opts.filter((opt: any) => opt.isCorrect);
       const correctOpt = opts.find((opt: any) => opt.isCorrect);
+      const correctOptionIds = correctOpts.map((o: any) => o.id);
+      const correctTexts = correctOpts.map((o: any) => o.text);
+
       questionsMap.set(q.id, {
-        correctOptionId: correctOpt?.id || (typeof q.correct_answer === 'string' ? q.correct_answer : ''),
-        correctAnswer: q.correct_answer || correctOpt?.text,
+        correctOptionId: correctOptionIds.length > 1 ? correctOptionIds : (correctOpt?.id || (typeof q.correct_answer === 'string' ? q.correct_answer : '')),
+        correctAnswer: correctTexts.length > 1 ? correctTexts.join(', ') : (q.correct_answer || correctOpt?.text),
       });
     });
 

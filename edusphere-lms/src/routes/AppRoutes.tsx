@@ -144,6 +144,7 @@ export const AppRoutes: React.FC = () => {
       >
         <Route index element={<StudentDashboard />} />
         <Route path="browse" element={<StudentBrowseCourses />} />
+        <Route path="browse-courses" element={<Navigate to="/student/browse" replace />} />
         <Route path="wishlist" element={<StudentWishlist />} />
         <Route path="cart" element={<StudentCart />} />
         <Route path="checkout" element={<StudentCheckout />} />

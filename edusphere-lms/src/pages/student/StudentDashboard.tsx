@@ -32,12 +32,12 @@ export const StudentDashboard: React.FC = () => {
   const studentName = currentUser?.name || 'Student';
   const studentAvatar = currentUser?.avatar || '';
 
-  // React Query caching for Student Dashboard (5-minute staleTime)
+  // React Query caching for Student Dashboard
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['student-dashboard', currentUser?.id],
     queryFn: async () => {
       const [enrollmentsRes, publicCoursesRes, allProgressRes] = await Promise.all([
-        enrollmentService.getStudentEnrollments().catch(() => ({ success: false, data: [] })),
+        enrollmentService.getStudentEnrollments(true).catch(() => ({ success: false, data: [] })),
         courseService.getPublicCourses({ limit: 4 }).catch(() => ({ success: false, data: [] })),
         progressService.getAllCoursesProgress().catch(() => ({ success: false, data: {} })),
       ]);
@@ -95,7 +95,9 @@ export const StudentDashboard: React.FC = () => {
         recommendedCourses: recCourses,
       };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     enabled: !!currentUser?.id,
   });
 

@@ -13,7 +13,6 @@ import {
   FiBarChart2,
   FiDollarSign,
   FiLayers,
-  FiCreditCard,
   FiLogOut
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -49,7 +48,6 @@ export const Sidebar: React.FC<SidebarProps> = () => {
     { to: '/student/assignments', label: 'Assignments', icon: FiFileText },
     { to: '/student/quizzes', label: 'Quizzes', icon: FiCheckSquare },
     { to: '/student/certificates', label: 'Certificates', icon: FiAward },
-    { to: '/student/payments', label: 'Payment History', icon: FiCreditCard },
     { to: '/student/profile', label: 'Profile', icon: FiUser },
     { to: '/student/settings', label: 'Settings', icon: FiSettings },
   ];

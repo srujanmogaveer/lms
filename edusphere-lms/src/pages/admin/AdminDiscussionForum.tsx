@@ -107,17 +107,6 @@ export const AdminDiscussionForum: React.FC = () => {
   }, [discussions, reports]);
 
   // Handlers
-  const handleToggleLock = async (discId: string, isLocked: boolean) => {
-    try {
-      const updated = await forumService.moderateDiscussion(discId, { isLocked: !isLocked });
-      setDiscussions((prev) => prev.map((d) => (d.id === discId ? updated : d)));
-      if (selectedDiscussion && selectedDiscussion.id === discId) {
-        setSelectedDiscussion(updated);
-      }
-    } catch (err: any) {
-      alert(err.message || 'Failed to update lock status');
-    }
-  };
 
   const handleTogglePin = async (discId: string, isPinned: boolean) => {
     try {
@@ -426,15 +415,6 @@ export const AdminDiscussionForum: React.FC = () => {
                       <FiStar className="w-3.5 h-3.5" />
                     </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleLock(disc.id, Boolean(disc.isLocked))}
-                      className={`text-xs ${disc.isLocked ? 'text-rose-600 border-rose-300' : ''}`}
-                      title={disc.isLocked ? 'Unlock Thread' : 'Lock Thread'}
-                    >
-                      <FiLock className="w-3.5 h-3.5" />
-                    </Button>
 
                     <Button
                       variant="outline"
@@ -553,15 +533,6 @@ export const AdminDiscussionForum: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleToggleLock(selectedDiscussion.id, Boolean(selectedDiscussion.isLocked))}
-                className={`text-xs ${selectedDiscussion.isLocked ? 'text-rose-600' : ''}`}
-              >
-                <FiLock className="w-3.5 h-3.5 mr-1" />
-                {selectedDiscussion.isLocked ? 'Unlock Thread' : 'Lock Thread'}
-              </Button>
 
               <Button
                 variant="outline"

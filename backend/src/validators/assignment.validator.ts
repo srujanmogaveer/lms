@@ -11,6 +11,10 @@ export const createAssignmentSchema = {
     maxScore: z.number().positive('Maximum score must be greater than 0').default(100),
     passingScore: z.number().min(0, 'Passing score must be at least 0').optional().default(60),
     maxAttempts: z.number().int('Maximum attempts must be an integer').min(1, 'Maximum attempts must be at least 1').optional().default(3),
+    attachmentUrl: z.string().optional().nullable(),
+    attachmentName: z.string().optional().nullable(),
+    attachmentSize: z.string().optional().nullable(),
+    attachmentType: z.string().optional().nullable(),
     status: z.enum(['Draft', 'Published', 'Archived']).optional().default('Published'),
     position: z.number().int().min(1).optional().default(1),
   }).refine((data) => {
@@ -35,6 +39,10 @@ export const updateAssignmentSchema = {
     maxScore: z.number().positive('Maximum score must be greater than 0').optional(),
     passingScore: z.number().min(0, 'Passing score must be at least 0').optional(),
     maxAttempts: z.number().int('Maximum attempts must be an integer').min(1, 'Maximum attempts must be at least 1').optional(),
+    attachmentUrl: z.string().optional().nullable(),
+    attachmentName: z.string().optional().nullable(),
+    attachmentSize: z.string().optional().nullable(),
+    attachmentType: z.string().optional().nullable(),
     status: z.enum(['Draft', 'Published', 'Archived']).optional(),
     position: z.number().int().min(1).optional(),
   }).refine((data) => {

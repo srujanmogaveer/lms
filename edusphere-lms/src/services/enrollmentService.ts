@@ -42,8 +42,16 @@ export const enrollmentService = {
     return studentEnrollmentsCache;
   },
 
+  // Clear in-memory cache
+  clearCache: (): void => {
+    studentEnrollmentsCache = null;
+  },
+
   // Student: Get own enrollments
-  getStudentEnrollments: async (): Promise<ApiResponse<FrontendEnrollment[]>> => {
+  getStudentEnrollments: async (forceRefresh = false): Promise<ApiResponse<FrontendEnrollment[]>> => {
+    if (forceRefresh) {
+      studentEnrollmentsCache = null;
+    }
     const res = await api.get<FrontendEnrollment[]>('/student/enrollments');
     if (res.success && res.data) {
       studentEnrollmentsCache = res.data;

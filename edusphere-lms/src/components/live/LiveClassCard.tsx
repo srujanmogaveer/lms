@@ -66,40 +66,16 @@ export const LiveClassCard: React.FC<LiveClassCardProps> = ({
   };
 
   const getPlatformBadge = () => {
-    switch (platform) {
-      case 'Jitsi Meet':
-        return (
-          <span className="text-[10px] font-extrabold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 px-2 py-0.5 rounded-full border border-purple-300 dark:border-purple-800">
-            Jitsi (In-App)
-          </span>
-        );
-      case 'Google Meet':
-        return (
-          <span className="text-[10px] font-extrabold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 px-2 py-0.5 rounded-full">
-            Google Meet
-          </span>
-        );
-      case 'Microsoft Teams':
-        return (
-          <span className="text-[10px] font-extrabold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 px-2 py-0.5 rounded-full">
-            MS Teams
-          </span>
-        );
-      default:
-        return (
-          <span className="text-[10px] font-extrabold bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300 px-2 py-0.5 rounded-full">
-            {platform || 'Zoom HD'}
-          </span>
-        );
-    }
+    return (
+      <span className="text-[10px] font-extrabold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 px-2 py-0.5 rounded-full border border-purple-300 dark:border-purple-800">
+        In-App Live (LiveKit)
+      </span>
+    );
   };
 
   const getJoinButtonLabel = () => {
-    if (platform === 'Jitsi Meet') return 'Join In-App Class';
-    if (platform === 'Google Meet') return 'Join Google Meet';
-    if (platform === 'Zoom') return 'Join Zoom';
-    if (platform === 'Microsoft Teams') return 'Join MS Teams';
-    return 'Join Class';
+    if (status === 'live_now' || status === 'Live') return 'Join Live Now';
+    return 'Enter Classroom';
   };
 
   return (
@@ -180,7 +156,7 @@ export const LiveClassCard: React.FC<LiveClassCardProps> = ({
           <span className="font-mono text-[11px] text-slate-500">{platform}</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid ${status === 'completed' || status === 'Completed' ? (isRecordingAvailable && liveClass.recordingUrl ? 'grid-cols-2' : 'grid-cols-1') : 'grid-cols-2'} gap-2`}>
           <Button
             variant="outline"
             size="sm"
@@ -191,27 +167,26 @@ export const LiveClassCard: React.FC<LiveClassCardProps> = ({
           </Button>
 
           {status === 'completed' || status === 'Completed' ? (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => onWatchRecording(liveClass)}
-              disabled={!isRecordingAvailable}
-              className="w-full justify-center text-xs flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
-            >
-              <FiPlayCircle className="w-3.5 h-3.5" />
-              <span>{isRecordingAvailable ? 'Watch Recording' : 'Recording Soon'}</span>
-            </Button>
+            isRecordingAvailable && liveClass.recordingUrl ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => onWatchRecording(liveClass)}
+                className="w-full justify-center text-xs flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <FiPlayCircle className="w-3.5 h-3.5" />
+                <span>Watch Recording</span>
+              </Button>
+            ) : null
           ) : (
             <Button
               variant="primary"
               size="sm"
               onClick={() => onJoinClass(liveClass)}
               className={`w-full justify-center text-xs flex items-center gap-1 text-white ${
-                platform === 'Jitsi Meet'
-                  ? 'bg-purple-600 hover:bg-purple-700 font-bold shadow-md shadow-purple-600/20'
-                  : status === 'live_now' || status === 'Live'
+                status === 'live_now' || status === 'Live'
                   ? 'bg-emerald-600 hover:bg-emerald-700 font-bold shadow-md shadow-emerald-600/20'
-                  : 'bg-brand-600 hover:bg-brand-700'
+                  : 'bg-purple-600 hover:bg-purple-700 font-bold shadow-md shadow-purple-600/20'
               }`}
             >
               <FiVideo className="w-3.5 h-3.5" />

@@ -168,7 +168,7 @@ export const StudentCart: React.FC = () => {
       {/* 1. Shopping Cart Header */}
       <CartHeader
         totalItems={cartItems.length}
-        onContinueShopping={() => navigate('/student/browse-courses')}
+        onContinueShopping={() => navigate('/student/browse')}
         onResetCart={fetchCartAndCatalog}
         onRefresh={fetchCartAndCatalog}
         isLoading={isLoading}
@@ -197,7 +197,7 @@ export const StudentCart: React.FC = () => {
               title="Your shopping cart is empty."
               description="Explore our course catalog or review your saved wishlist items to add them to your shopping cart."
               actionLabel="Browse Courses"
-              onAction={() => navigate('/student/browse-courses')}
+              onAction={() => navigate('/student/browse')}
             />
 
             <div className="pt-4 flex justify-center">
@@ -268,7 +268,7 @@ export const StudentCart: React.FC = () => {
                 originalSubtotal={originalSubtotal}
                 coursesDiscount={coursesDiscount}
                 onProceedToCheckout={() => navigate('/student/checkout')}
-                onContinueShopping={() => navigate('/student/browse-courses')}
+                onContinueShopping={() => navigate('/student/browse')}
               />
             </div>
           </div>

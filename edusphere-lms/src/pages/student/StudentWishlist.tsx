@@ -336,7 +336,7 @@ export const StudentWishlist: React.FC = () => {
             title="No courses in your wishlist."
             description="Explore our course catalog and save your favorite masterclasses to learn at your own pace."
             actionLabel="Browse Courses"
-            onAction={() => navigate('/student/browse-courses')}
+            onAction={() => navigate('/student/browse')}
           />
         </motion.div>
       ) : (

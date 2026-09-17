@@ -197,6 +197,95 @@ export async function uploadChatAttachment(
 }
 
 /**
+ * Uploads an assignment reference attachment or sample template for instructors.
+ * Tries backend multipart API first, falls back to direct Supabase Storage.
+ */
+export async function uploadAssignmentAttachment(
+  file: File,
+  courseId?: string
+): Promise<UploadedAttachmentResult> {
+  const MAX_SIZE = 15 * 1024 * 1024; // 15 MB limit
+  if (file.size > MAX_SIZE) {
+    throw new Error('File size exceeds the 15 MB limit. Please select a smaller file.');
+  }
+
+  const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+
+  // Determine type
+  let attType: 'image' | 'pdf' | 'doc' | 'archive' | 'file' = 'file';
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(fileExt) || file.type.startsWith('image/')) {
+    attType = 'image';
+  } else if (fileExt === 'pdf' || file.type === 'application/pdf') {
+    attType = 'pdf';
+  } else if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(fileExt) || file.type.includes('word')) {
+    attType = 'doc';
+  } else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt) || file.type.includes('zip')) {
+    attType = 'archive';
+  }
+
+  const formattedSize =
+    file.size >= 1024 * 1024
+      ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+  // 1. Try Backend Upload Endpoint
+  try {
+    const { api } = await import('./apiClient');
+    const formData = new FormData();
+    formData.append('file', file);
+    if (courseId) formData.append('courseId', courseId);
+
+    const res = await api.upload<any>('/instructor/assignments/upload-attachment', formData);
+    if (res.success && res.data?.url) {
+      return {
+        id: `att-${Date.now()}`,
+        name: res.data.fileName || file.name,
+        size: res.data.formattedSize || formattedSize,
+        type: attType,
+        url: res.data.url,
+        previewUrl: attType === 'image' ? res.data.url : undefined,
+        storagePath: res.data.url,
+      };
+    }
+  } catch (apiErr: any) {
+    console.warn('Backend assignment attachment upload fallback triggered:', apiErr?.message || apiErr);
+  }
+
+  // 2. Direct Supabase Storage Fallback
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const storagePath = `assignments/${courseId || 'general'}/${Date.now()}-${sanitizedName}`;
+
+  try {
+    const { error: uploadErr } = await supabase.storage
+      .from('chat-attachments')
+      .upload(storagePath, file, {
+        cacheControl: '31536000, immutable',
+        upsert: true,
+        contentType: file.type || undefined,
+      });
+
+    if (!uploadErr) {
+      const { data } = supabase.storage.from('chat-attachments').getPublicUrl(storagePath);
+      if (data?.publicUrl) {
+        return {
+          id: `att-${Date.now()}`,
+          name: file.name,
+          size: formattedSize,
+          type: attType,
+          url: data.publicUrl,
+          previewUrl: attType === 'image' ? data.publicUrl : undefined,
+          storagePath,
+        };
+      }
+    }
+  } catch (storageErr) {
+    console.error('Supabase direct upload failed:', storageErr);
+  }
+
+  throw new Error('Failed to upload assignment attachment. Please check your internet connection.');
+}
+
+/**
  * Clean up an uploaded file from Supabase Storage if message creation fails
  */
 export async function deleteChatAttachment(storagePath: string): Promise<void> {
@@ -208,4 +297,5 @@ export async function deleteChatAttachment(storagePath: string): Promise<void> {
     // Ignore cleanup errors
   }
 }
+
 

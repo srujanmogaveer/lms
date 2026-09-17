@@ -15,8 +15,17 @@ export const TextInput: React.FC<TextInputProps> = ({
   icon,
   className = '',
   id,
+  type,
+  onChange,
   ...props
 }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (type === 'email') {
+      e.target.value = e.target.value.toLowerCase();
+    }
+    onChange?.(e);
+  };
+
   return (
     <div className="w-full space-y-1">
       {label && <Label htmlFor={id}>{label}</Label>}
@@ -28,6 +37,8 @@ export const TextInput: React.FC<TextInputProps> = ({
         )}
         <input
           id={id}
+          type={type}
+          onChange={handleChange}
           className={`w-full text-sm rounded-lg border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800 ${
             icon ? 'pl-9' : 'pl-3'
           } pr-3 py-2 ${

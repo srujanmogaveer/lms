@@ -8,7 +8,7 @@ export const createLiveClassSchema = {
     startTime: z.string().min(1, 'Start time is required'),
     endTime: z.string().min(1, 'End time is required'),
     durationMinutes: z.number().int().positive('Duration must be positive').optional(),
-    platform: z.string().optional().default('Google Meet'),
+    platform: z.string().optional().default('In-App Live Classroom'),
     meetingUrl: z.string().trim().optional(),
     meetingId: z.string().optional(),
     passcode: z.string().optional(),
@@ -18,23 +18,6 @@ export const createLiveClassSchema = {
     instructions: z.string().optional().default(''),
     resources: z.array(z.any()).optional().default([]),
     recordingUrl: z.string().trim().url('Recording URL must be a valid URL').optional().or(z.literal('')),
-  }).refine((data) => {
-    const isJitsi = data.platform === 'Jitsi Meet';
-    if (!isJitsi) {
-      if (!data.meetingUrl || !data.meetingUrl.trim()) {
-        return false;
-      }
-      try {
-        new URL(data.meetingUrl);
-        return true;
-      } catch {
-        return false;
-      }
-    }
-    return true;
-  }, {
-    message: 'Meeting URL is required and must be a valid URL for external platforms',
-    path: ['meetingUrl'],
   }).refine((data) => {
     const start = new Date(data.startTime).getTime();
     const end = new Date(data.endTime).getTime();

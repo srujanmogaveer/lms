@@ -6,6 +6,7 @@ import { enrollmentService } from '../../services/enrollmentService';
 import { progressService } from '../../services/progressService';
 import { assignmentService } from '../../services/assignmentService';
 import { quizService } from '../../services/quizService';
+import { courseService } from '../../services/courseService';
 // Sub-components
 import { MyCoursesHeader } from '../../components/mycourses/MyCoursesHeader';
 import { MyCoursesProgressSummary } from '../../components/mycourses/MyCoursesProgressSummary';
@@ -17,7 +18,6 @@ import {
 } from '../../components/mycourses/MyCoursesModals';
 import { CertificatePreviewDocument } from '../../components/certificates/CertificatePreviewDocument';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { SkeletonLoader } from '../../components/loaders/Loaders';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,19 +27,28 @@ export const StudentMyCourses: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
-  // React Query caching for Student My Courses (5-minute staleTime)
-  const { data: myCoursesData = { enrolledCourses: [], upcomingActivities: [] }, isLoading } = useQuery<{
+  // React Query caching for Student My Courses
+  const { data: myCoursesData = { enrolledCourses: [], upcomingActivities: [] }, isFetching } = useQuery<{
     enrolledCourses: EnrolledCourseDetail[];
     upcomingActivities: UpcomingActivityItem[];
   }>({
     queryKey: ['student-my-courses', currentUser?.id],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      const [enrollmentsRes, allProgressRes, assignmentsRes, quizzesRes] = await Promise.all([
-        enrollmentService.getStudentEnrollments().catch(() => ({ success: false, data: [] })),
+      const [enrollmentsRes, allProgressRes, assignmentsRes, quizzesRes, publicCoursesRes] = await Promise.all([
+        enrollmentService.getStudentEnrollments(true).catch(() => ({ success: false, data: [] })),
         progressService.getAllCoursesProgress().catch(() => ({ success: false, data: {} })),
         assignmentService.getStudentEnrolledAssignments().catch(() => ({ success: false, data: [] })),
         quizService.getStudentEnrolledQuizzes().catch(() => ({ success: false, data: [] })),
+        courseService.getPublicCourses().catch(() => ({ success: false, data: [] })),
       ]);
+
+      const publicCoursesMap: Record<string, Course> = {};
+      if (publicCoursesRes.success && Array.isArray(publicCoursesRes.data)) {
+        publicCoursesRes.data.forEach((c) => {
+          publicCoursesMap[c.id] = c;
+        });
+      }
 
       let enriched: EnrolledCourseDetail[] = [];
       if (enrollmentsRes.success && Array.isArray(enrollmentsRes.data) && enrollmentsRes.data.length > 0) {
@@ -47,9 +56,17 @@ export const StudentMyCourses: React.FC = () => {
           allProgressRes.success && allProgressRes.data ? allProgressRes.data : {};
 
         enriched = enrollmentsRes.data.map((enr) => {
+          const matchedCourse = publicCoursesMap[enr.courseId];
           const progData = progressMap[enr.courseId];
           const progressPct = progData ? progData.lessonProgressPercentage : 0;
-          const totalLessonsCount = progData && progData.totalLessons > 0 ? progData.totalLessons : 10;
+          const totalLessonsCount =
+            (matchedCourse?.lessonsCount && matchedCourse.lessonsCount > 0)
+              ? matchedCourse.lessonsCount
+              : (progData && progData.totalLessons > 0)
+              ? progData.totalLessons
+              : (enr.lessonsCount && enr.lessonsCount > 0)
+              ? enr.lessonsCount
+              : 8;
           const completedLessonsCount = progData ? progData.completedLessons : 0;
           const isCourseCompleted = Boolean(progData?.isCourseCompleted || progData?.certificateAvailable);
 
@@ -60,29 +77,35 @@ export const StudentMyCourses: React.FC = () => {
               ? 'in_progress'
               : 'not_started';
 
+          const actualDurationHours =
+            matchedCourse?.durationHours ||
+            enr.durationHours ||
+            Number(((totalLessonsCount * 20) / 60).toFixed(1)) ||
+            2;
+
           return {
             id: enr.id,
             course: {
               id: enr.courseId,
-              title: enr.courseTitle || 'Enrolled Course',
-              slug: enr.courseId,
-              description: 'Comprehensive curriculum with lessons, assignments, and mandatory quiz assessment.',
-              instructorId: enr.instructorId || '',
-              instructorName: enr.instructorName || 'Lead Instructor',
-              instructorAvatar: enr.instructorAvatar || '',
-              instructorBio: enr.instructorBio || '',
-              instructorSpecialization: enr.instructorSpecialization || '',
-              instructorQualification: enr.instructorQualification || '',
-              thumbnail: enr.courseThumbnail || '',
-              rating: enr.rating || 5.0,
-              reviewsCount: 0,
-              studentsEnrolled: enr.studentsEnrolled || 0,
-              price: 0,
-              discountPrice: 0,
-              durationHours: Math.round((totalLessonsCount * 15) / 60) || 4,
+              title: matchedCourse?.title || enr.courseTitle || 'Enrolled Course',
+              slug: matchedCourse?.slug || enr.courseId,
+              description: matchedCourse?.description || 'Comprehensive curriculum with lessons, assignments, and mandatory quiz assessment.',
+              instructorId: matchedCourse?.instructorId || enr.instructorId || '',
+              instructorName: matchedCourse?.instructorName || enr.instructorName || 'Lead Instructor',
+              instructorAvatar: matchedCourse?.instructorAvatar || enr.instructorAvatar || '',
+              instructorBio: matchedCourse?.instructorBio || enr.instructorBio || '',
+              instructorSpecialization: matchedCourse?.instructorSpecialization || enr.instructorSpecialization || '',
+              instructorQualification: matchedCourse?.instructorQualification || enr.instructorQualification || '',
+              thumbnail: matchedCourse?.thumbnail || enr.courseThumbnail || '',
+              rating: matchedCourse?.rating || enr.rating || 5.0,
+              reviewsCount: matchedCourse?.reviewsCount || 0,
+              studentsEnrolled: matchedCourse?.studentsEnrolled || enr.studentsEnrolled || 0,
+              price: matchedCourse?.price || 0,
+              discountPrice: matchedCourse?.discountPrice || 0,
+              durationHours: actualDurationHours,
               lessonsCount: totalLessonsCount,
-              level: 'All Levels' as const,
-              category: enr.category || 'General',
+              level: matchedCourse?.level || ('All Levels' as const),
+              category: matchedCourse?.category || enr.category || 'General',
               updatedAt: new Date(enr.enrolledAt).toLocaleDateString('en-IN'),
               isPublished: true,
               isFeatured: true,
@@ -168,7 +191,9 @@ export const StudentMyCourses: React.FC = () => {
         upcomingActivities: activities.slice(0, 3),
       };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     enabled: !!currentUser?.id,
   });
 
@@ -336,21 +361,10 @@ export const StudentMyCourses: React.FC = () => {
         completedCount={completedCount}
         notStartedCount={notStartedCount}
         onRefresh={handleRefresh}
-        isLoading={isLoading}
+        isLoading={isFetching}
       />
 
-      {/* Loading Skeleton View */}
-      {isLoading ? (
-        <div className="space-y-6">
-          <SkeletonLoader className="h-28 w-full rounded-2xl" />
-          <SkeletonLoader className="h-16 w-full rounded-2xl" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <SkeletonLoader key={i} className="h-72 w-full rounded-2xl" />
-            ))}
-          </div>
-        </div>
-      ) : enrolledCourses.length === 0 ? (
+      {enrolledCourses.length === 0 && !isFetching ? (
         /* Empty State View */
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
@@ -372,9 +386,20 @@ export const StudentMyCourses: React.FC = () => {
           <MyCoursesProgressSummary
             overallProgress={overallProgress}
             completedCount={completedCount}
-            totalHoursLearned={Math.round(
-              enrolledCourses.reduce((acc, curr) => acc + (curr.completedLessons * 15) / 60, 0) * 10
-            ) / 10}
+            totalHoursLearned={
+              Math.round(
+                enrolledCourses.reduce((acc, curr) => {
+                  const courseHours = curr.course.durationHours || 2;
+                  const earnedHours =
+                    curr.enrollmentStatus === 'completed'
+                      ? courseHours
+                      : curr.totalLessons > 0
+                      ? (curr.completedLessons / curr.totalLessons) * courseHours
+                      : (curr.progress / 100) * courseHours;
+                  return acc + earnedHours;
+                }, 0) * 10
+              ) / 10
+            }
           />
 
           {/* 3. Search & Course Tabs & Filters */}
@@ -399,7 +424,7 @@ export const StudentMyCourses: React.FC = () => {
               onAction={handleResetFilters}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredCourses.map((item) => (
                 <motion.div key={item.id} layout>
                   <MyCourseCard

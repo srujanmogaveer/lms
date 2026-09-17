@@ -20,7 +20,18 @@ interface AuthContextType {
   login: (credentials: { email: string; password: string; role?: 'student' | 'instructor' | 'admin' }) => Promise<AuthSessionData>;
   signInWithGoogle: () => Promise<void>;
   registerStudent: (data: { fullName: string; email: string; password: string; phone?: string; termsAgreed: boolean }) => Promise<AuthSessionData>;
-  registerInstructor: (data: { fullName: string; email: string; password: string; phone?: string; avatarUrl?: string; qualification?: string; experience?: string; specialization?: string; termsAgreed: boolean }) => Promise<AuthSessionData>;
+  registerInstructor: (data: {
+    fullName: string;
+    email: string;
+    password: string;
+    phone?: string;
+    avatarUrl?: string;
+    qualification?: string;
+    experience?: string;
+    specialization?: string;
+    category?: string;
+    termsAgreed: boolean;
+  }) => Promise<AuthSessionData>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (data: any) => Promise<AuthSessionData['user']>;
@@ -330,6 +341,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     qualification?: string;
     experience?: string;
     specialization?: string;
+    category?: string;
     termsAgreed: boolean;
   }): Promise<AuthSessionData> => {
     setIsSubmittingAuth(true);

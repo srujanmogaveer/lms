@@ -1,11 +1,14 @@
 import crypto from 'crypto';
+import { AccessToken } from 'livekit-server-sdk';
 import { supabaseAdmin } from '../config/supabase';
+import { config } from '../config/env';
 import { ApiError } from '../utils/apiResponse';
 import {
   LiveClassItem,
   LiveClassQAItem,
   LiveClassParticipantItem,
   LiveClassPaginatedResult,
+  LiveClassJoinResult,
   CreateLiveClassDto,
   UpdateLiveClassDto,
   RescheduleLiveClassDto,
@@ -16,6 +19,46 @@ import { logger } from '../utils/logger';
 import { NotificationService } from './notification.service';
 
 export class LiveClassService {
+  /**
+   * Generates a signed LiveKit AccessToken for WebRTC media room access
+   */
+  private async generateLiveKitToken(
+    userId: string,
+    userName: string,
+    userAvatar: string | undefined,
+    userRole: string,
+    roomName: string,
+    isHost: boolean
+  ): Promise<string> {
+    try {
+      const apiKey = config.livekit.apiKey;
+      const apiSecret = config.livekit.apiSecret;
+
+      const at = new AccessToken(apiKey, apiSecret, {
+        identity: userId,
+        name: userName,
+        metadata: JSON.stringify({
+          role: userRole,
+          avatar: userAvatar || '',
+        }),
+        ttl: '6h',
+      });
+
+      at.addGrant({
+        roomJoin: true,
+        room: roomName,
+        canPublish: true,
+        canSubscribe: true,
+        canPublishData: true,
+        roomAdmin: isHost,
+      });
+
+      return await at.toJwt();
+    } catch (err: any) {
+      logger.error('Failed to generate LiveKit AccessToken:', err);
+      return '';
+    }
+  }
   /**
    * Evaluates dynamic class status according to time rules:
    * - Cancelled stays Cancelled
@@ -204,18 +247,13 @@ export class LiveClassService {
       dto.durationMinutes ||
       Math.max(15, Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / (1000 * 60)));
 
-    const isRecordingAvailable = Boolean(dto.recordingUrl && dto.recordingUrl.trim());
-
-    // 5. Generate Permanent Class UUID and Jitsi Room ID if platform is Jitsi Meet
+    // 5. Generate Permanent Class UUID and Internal Room Name
     const classId = crypto.randomUUID();
-    const platform = dto.platform || 'Google Meet';
-    let meetingUrl = dto.meetingUrl?.trim() || '';
-    let meetingId = dto.meetingId?.trim() || null;
-
-    if (platform === 'Jitsi Meet') {
-      meetingId = `edusphere-${classId}`;
-      meetingUrl = `https://meet.jit.si/edusphere-${classId}`;
-    }
+    const platform = dto.platform || 'In-App Live Classroom';
+    const roomName = `edusphere-${classId}`;
+    const meetingUrl = dto.meetingUrl?.trim() || `/student/live/room/${classId}`;
+    const meetingId = dto.meetingId?.trim() || roomName;
+    const isRecordingAvailable = Boolean(dto.recordingUrl && dto.recordingUrl.trim());
 
     // 6. Insert into Database
     const { data: createdRow, error: insertErr } = await supabaseAdmin
@@ -451,14 +489,10 @@ export class LiveClassService {
     const recordingUrl = dto.recordingUrl !== undefined ? (dto.recordingUrl?.trim() || null) : existing.recording_url;
     const isRecordingAvailable = dto.isRecordingAvailable !== undefined ? dto.isRecordingAvailable : Boolean(recordingUrl);
 
-    const platform = dto.platform || existing.platform;
-    let meetingUrl = dto.meetingUrl !== undefined ? dto.meetingUrl.trim() : existing.meeting_url;
-    let meetingId = dto.meetingId !== undefined ? (dto.meetingId?.trim() || null) : existing.meeting_id;
-
-    if (platform === 'Jitsi Meet') {
-      meetingId = `edusphere-${classId}`;
-      meetingUrl = `https://meet.jit.si/edusphere-${classId}`;
-    }
+    const platform = dto.platform || existing.platform || 'In-App Live Classroom';
+    const roomName = `edusphere-${classId}`;
+    let meetingUrl = dto.meetingUrl !== undefined ? dto.meetingUrl.trim() : existing.meeting_url || `/student/live/room/${classId}`;
+    let meetingId = dto.meetingId !== undefined ? (dto.meetingId?.trim() || null) : existing.meeting_id || roomName;
 
     const updatePayload: any = {
       title: dto.title !== undefined ? dto.title.trim() : existing.title,
@@ -606,18 +640,9 @@ export class LiveClassService {
 
   /**
    * 5b. Authorize Live Class Join / Start
-   * Rejects join requests for Completed or Cancelled classes
+   * Generates a signed LiveKit WebRTC AccessToken and returns room parameters
    */
-  public async joinLiveClass(userId: string, userRole: string, classId: string): Promise<{
-    id: string;
-    title: string;
-    status: LiveClassStatus;
-    platform: string;
-    meetingUrl: string;
-    meetingId: string;
-    roomName: string;
-    isHost: boolean;
-  }> {
+  public async joinLiveClass(userId: string, userRole: string, classId: string): Promise<LiveClassJoinResult> {
     const { data: row, error } = await supabaseAdmin
       .from('live_classes')
       .select('*, courses(id, title), profiles(id, full_name, avatar_url, headline)')
@@ -641,6 +666,16 @@ export class LiveClassService {
     if (currentStatus === 'Draft') {
       throw ApiError.badRequest('This live class session is not yet published');
     }
+
+    // Fetch user profile for name and avatar
+    const { data: userProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const userName = userProfile?.full_name || (userRole === 'instructor' ? 'Instructor' : 'Student');
+    const userAvatar = userProfile?.avatar_url || undefined;
 
     if (userRole === 'instructor') {
       if (row.instructor_id !== userId) {
@@ -668,17 +703,29 @@ export class LiveClassService {
     }
 
     const roomName = `edusphere-${row.id}`;
-    const meetingUrl = row.platform === 'Jitsi Meet' ? `https://meet.jit.si/${roomName}` : row.meeting_url;
+    const isHost = userRole === 'instructor' || userRole === 'admin';
+
+    // Generate cryptographic LiveKit JWT token
+    const token = await this.generateLiveKitToken(
+      userId,
+      userName,
+      userAvatar,
+      userRole,
+      roomName,
+      isHost
+    );
 
     return {
       id: row.id,
       title: row.title,
       status: currentStatus,
-      platform: row.platform || 'Jitsi Meet',
-      meetingUrl: meetingUrl,
-      meetingId: row.meeting_id || roomName,
+      platform: 'In-App Live Classroom',
+      meetingUrl: `/student/live/room/${row.id}`,
+      meetingId: roomName,
       roomName: roomName,
-      isHost: userRole === 'instructor' || userRole === 'admin',
+      isHost: isHost,
+      token: token,
+      serverUrl: config.livekit.url,
     };
   }
 

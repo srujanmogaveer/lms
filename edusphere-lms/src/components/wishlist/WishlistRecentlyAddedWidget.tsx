@@ -10,6 +10,28 @@ interface WishlistRecentlyAddedWidgetProps {
   onMoveToCart: (course: Course) => void;
 }
 
+const formatRelativeTime = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 2) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+};
+
 export const WishlistRecentlyAddedWidget: React.FC<WishlistRecentlyAddedWidgetProps> = ({
   recentItems,
   onViewCourse,
@@ -29,53 +51,64 @@ export const WishlistRecentlyAddedWidget: React.FC<WishlistRecentlyAddedWidgetPr
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {recentItems.slice(0, 3).map((item) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {recentItems.slice(0, 4).map((item) => {
           const { course } = item;
           const currentPrice = course.discountPrice || course.price;
+          const isDiscounted = course.discountPrice && course.discountPrice < course.price;
+          const timeLabel = formatRelativeTime(item.addedAt);
 
           return (
             <div
               key={item.id}
-              className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 flex flex-col justify-between hover:shadow-md transition-shadow"
+              className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 flex flex-col justify-between hover:shadow-lg transition-all duration-200 group"
             >
-              <div className="space-y-2">
-                <div className="relative h-20 w-full overflow-hidden rounded-lg">
+              <div className="space-y-2.5">
+                <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
                   <img
                     src={course.thumbnail}
                     alt={course.title}
-                    className="w-full h-full object-cover cursor-pointer"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
                     onClick={() => onViewCourse(course)}
                   />
-                  <span className="absolute bottom-1 right-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded backdrop-blur-sm">
-                    {item.addedAt}
-                  </span>
+                  {timeLabel && (
+                    <span className="absolute bottom-2 right-2 text-[10px] font-medium bg-black/70 text-white px-2 py-0.5 rounded-md backdrop-blur-sm shadow-xs">
+                      {timeLabel}
+                    </span>
+                  )}
                 </div>
 
                 <h4
                   onClick={() => onViewCourse(course)}
-                  className="font-bold text-xs text-slate-900 dark:text-slate-100 line-clamp-1 hover:text-rose-600 transition-colors cursor-pointer"
+                  className="font-bold text-xs text-slate-900 dark:text-slate-100 line-clamp-2 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer leading-snug"
                 >
                   {course.title}
                 </h4>
 
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="flex items-center gap-0.5 text-amber-500 font-bold">
-                    <FiStar className="w-3 h-3 fill-amber-400" /> {course.rating}
+                <div className="flex items-center justify-between text-[11px] pt-1">
+                  <span className="flex items-center gap-1 text-amber-500 font-bold">
+                    <FiStar className="w-3.5 h-3.5 fill-amber-400" /> {course.rating}
                   </span>
-                  <span className="font-extrabold text-slate-900 dark:text-slate-100">
-                    ${currentPrice.toFixed(2)}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-slate-900 dark:text-slate-100 text-xs">
+                      ₹{currentPrice.toLocaleString('en-IN')}
+                    </span>
+                    {isDiscounted && (
+                      <span className="text-[10px] text-slate-400 line-through">
+                        ₹{course.price.toLocaleString('en-IN')}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full justify-center text-[11px] py-1"
+                className="w-full justify-center text-xs py-1.5 font-semibold hover:border-rose-500 hover:text-rose-600 transition-colors"
                 onClick={() => onMoveToCart(course)}
               >
-                <FiShoppingCart className="w-3 h-3 mr-1" />
+                <FiShoppingCart className="w-3.5 h-3.5 mr-1.5" />
                 Move to Cart
               </Button>
             </div>

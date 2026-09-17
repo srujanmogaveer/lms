@@ -21,7 +21,7 @@ export const StudentLiveClasses: React.FC = () => {
   // Core Datasets State
   const [liveClasses, setLiveClasses] = useState<StudentLiveClass[]>([]);
   const [isEmptyState, setIsEmptyState] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   // View Mode State: 'list' | 'calendar'
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -84,23 +84,23 @@ export const StudentLiveClasses: React.FC = () => {
   };
 
   // Fetch real enrolled live classes from API
-  const fetchLiveClasses = useCallback(async () => {
-    setIsLoading(true);
+  const fetchLiveClasses = useCallback(async (showLoader = false) => {
+    if (showLoader) setIsLoading(true);
     try {
       const data = await liveClassService.getStudentLiveClasses();
       const formatted = data
         .map(formatBackendClass)
         .filter((lc) => (lc as any).status !== 'cancelled'); // Safety: never show cancelled to students
       setLiveClasses(formatted);
-    } catch (err: any) {
-      showErrorAlert('Error Loading Live Classes', err.message || 'Failed to load your enrolled live classes');
+    } catch {
+      // Retain existing state
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchLiveClasses();
+    fetchLiveClasses(false);
   }, [fetchLiveClasses]);
 
   // Unique Courses & Instructors Lists
@@ -199,19 +199,9 @@ export const StudentLiveClasses: React.FC = () => {
 
   const handleJoinClass = async (lc: StudentLiveClass) => {
     try {
-      // Backend verifies active enrollment before opening meeting
-      const details = await liveClassService.getStudentLiveClassDetails(lc.id);
-      if (details && details.meetingUrl) {
-        if (details.platform === 'Jitsi Meet') {
-          // Jitsi → navigate to in-app live room
-          navigate(`/student/live/room/${lc.id}`);
-        } else {
-          // External platforms → open in a new browser tab
-          window.open(details.meetingUrl, '_blank', 'noopener,noreferrer');
-        }
-      } else {
-        showErrorAlert('Meeting Link Unavailable', 'No meeting link found for this session.');
-      }
+      // Backend verifies active enrollment before entering
+      await liveClassService.getStudentLiveClassDetails(lc.id);
+      navigate(`/student/live/room/${lc.id}`);
     } catch (err: any) {
       showErrorAlert('Cannot Join Session', err.message || 'You do not have access to this session');
     }
@@ -238,7 +228,7 @@ export const StudentLiveClasses: React.FC = () => {
         completedCount={completedCount}
         isEmptyState={isEmptyState}
         onToggleEmptyState={() => setIsEmptyState(!isEmptyState)}
-        onRefresh={fetchLiveClasses}
+        onRefresh={() => fetchLiveClasses(true)}
         isLoading={isLoading}
       />
 
@@ -367,12 +357,12 @@ export const StudentLiveClasses: React.FC = () => {
                     </div>
                   )}
 
-                  {/* 3. Completed Past Sessions & Recordings */}
+                  {/* 3. Completed Past Sessions */}
                   {pastClasses.length > 0 && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                         <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
-                          Completed Sessions & Recording Archive ({pastClasses.length})
+                          Completed Sessions ({pastClasses.length})
                         </h2>
                       </div>
 
