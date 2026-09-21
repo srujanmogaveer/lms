@@ -33,6 +33,32 @@ export class PayoutController {
   }
 
   /**
+   * POST /api/v1/admin/payouts/auto-disburse
+   * 1-Click Instant Automated Payout Disbursement via RazorpayX (Method B)
+   */
+  public async autoDisbursePayout(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = (req as any).user?.id;
+      if (!adminId) {
+        throw ApiError.unauthorized('Authentication required');
+      }
+
+      const { instructorId, amount, notes, preferredMethod } = req.body;
+
+      const result = await payoutService.autoDisbursePayout(adminId, {
+        instructorId,
+        amount: Number(amount),
+        notes,
+        preferredMethod,
+      });
+
+      sendResponse(res, 201, 'Automated instructor payout processed successfully via RazorpayX', result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * GET /api/v1/admin/payouts
    * Admin gets all persistent payout transactions across all instructors
    */

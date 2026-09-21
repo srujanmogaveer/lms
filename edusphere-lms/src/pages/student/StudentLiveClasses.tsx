@@ -20,7 +20,6 @@ export const StudentLiveClasses: React.FC = () => {
 
   // Core Datasets State
   const [liveClasses, setLiveClasses] = useState<StudentLiveClass[]>([]);
-  const [isEmptyState, setIsEmptyState] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // View Mode State: 'list' | 'calendar'
@@ -226,8 +225,6 @@ export const StudentLiveClasses: React.FC = () => {
         todayCount={todayCount}
         upcomingCount={upcomingCount}
         completedCount={completedCount}
-        isEmptyState={isEmptyState}
-        onToggleEmptyState={() => setIsEmptyState(!isEmptyState)}
         onRefresh={() => fetchLiveClasses(true)}
         isLoading={isLoading}
       />
@@ -247,7 +244,7 @@ export const StudentLiveClasses: React.FC = () => {
             ))}
           </div>
         </div>
-      ) : isEmptyState || liveClasses.length === 0 ? (
+      ) : liveClasses.length === 0 ? (
         /* Empty State View */
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}

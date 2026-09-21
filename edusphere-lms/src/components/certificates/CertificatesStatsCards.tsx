@@ -61,7 +61,7 @@ export const CertificatesStatsCards: React.FC<CertificatesStatsCardsProps> = ({
     {
       id: 'hours',
       title: 'Total Learning Hours',
-      count: `${totalLearningHours} hrs`,
+      count: `${parseFloat(Number(totalLearningHours || 0).toFixed(1))} hrs`,
       subtitle: 'Cumulative study time',
       icon: <FiClock className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />,
       bgColor: 'bg-emerald-50 dark:bg-emerald-950/50',

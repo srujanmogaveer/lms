@@ -901,7 +901,7 @@ export class AdminService {
         assignmentsCompleted: progressData.completedAssignmentsCount || progressData.passedAssignmentsCount || 0,
         totalAssignments: progressData.mandatoryAssignmentsCount,
         quizScore,
-        learningHours: course.duration_hours || Math.round((progressData.totalLessons * 15) / 60) || 4,
+        learningHours: Number(Number(course.duration_hours || Math.round((progressData.totalLessons * 15) / 60) || 4).toFixed(2)),
       });
     }
 

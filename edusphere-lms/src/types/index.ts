@@ -428,6 +428,7 @@ export type NotificationCategory =
   | 'certificate'
   | 'enrollment'
   | 'instructor_message'
+  | 'forum'
   | 'system';
 
 export type NotificationType = 'info' | 'success' | 'warning' | 'error';

@@ -21,6 +21,7 @@ import {
   FiAlertCircle,
   FiPaperclip,
   FiUploadCloud,
+  FiEye,
 } from 'react-icons/fi';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -351,6 +352,7 @@ export const InstructorAssignmentManagement: React.FC = () => {
   const [reviewingSubmission, setReviewingSubmission] = useState<InstructorStudentSubmission | null>(null);
   const [deletingAssignment, setDeletingAssignment] = useState<InstructorAssignmentItem | null>(null);
   const [previewSubmissionData, setPreviewSubmissionData] = useState<SubmissionPreviewData | null>(null);
+  const [viewingAssignment, setViewingAssignment] = useState<InstructorAssignmentItem | null>(null);
 
   // Toast notification
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
@@ -1105,6 +1107,13 @@ export const InstructorAssignmentManagement: React.FC = () => {
                         {asg.maxMarks} Marks <span className="text-[10px] text-slate-400 font-normal">(Pass: {asg.passingMarks})</span>
                       </td>
                       <td className="p-4 text-right space-x-1">
+                        <button
+                          onClick={() => setViewingAssignment(asg)}
+                          className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition"
+                          title="Preview Assignment Question & Instructions"
+                        >
+                          <FiEye className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => {
                             setReviewingAssignment(asg);
@@ -2034,8 +2043,15 @@ export const InstructorAssignmentManagement: React.FC = () => {
                             <span>{sub.studentName}</span>
                           </div>
                         </td>
-                        <td className="p-4 font-mono text-slate-600 dark:text-slate-400 font-semibold">
-                          {sub.studentId}
+                        <td className="p-4">
+                          <span 
+                            className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono font-bold text-xs tracking-wider border border-slate-200 dark:border-slate-700 shadow-xs" 
+                            title={`Full UUID: ${sub.studentId}`}
+                          >
+                            {sub.studentId?.startsWith('STU-') 
+                              ? sub.studentId 
+                              : `STU-${(sub.studentId || '').slice(0, 8).toUpperCase()}`}
+                          </span>
                         </td>
                         <td className="p-4">
                           {sub.submittedDate ? (
@@ -2146,7 +2162,9 @@ export const InstructorAssignmentManagement: React.FC = () => {
                   <div>
                     <span className="text-slate-400 block text-[11px]">Student ID</span>
                     <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                      {reviewingSubmission.studentId}
+                      {reviewingSubmission.studentId?.startsWith('STU-')
+                        ? reviewingSubmission.studentId
+                        : `STU-${(reviewingSubmission.studentId || '').slice(0, 8).toUpperCase()}`}
                     </span>
                   </div>
                   <div>
@@ -2186,20 +2204,23 @@ export const InstructorAssignmentManagement: React.FC = () => {
               </div>
 
               {/* Submission File Section */}
-              <div className="p-4 bg-brand-50/50 dark:bg-brand-950/40 rounded-2xl border border-brand-200 dark:border-brand-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center shrink-0">
+              <div className="p-3.5 bg-brand-50/50 dark:bg-brand-950/40 rounded-2xl border border-brand-200 dark:border-brand-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 overflow-hidden">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                     <FiFileText className="w-5 h-5" />
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <h4 
+                      className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[180px] sm:max-w-[240px]" 
+                      title={reviewingSubmission.fileName || 'Uploaded_Submission_File.pdf'}
+                    >
                       {reviewingSubmission.fileName || 'Uploaded_Submission_File.pdf'}
                     </h4>
-                    <span className="text-[11px] text-slate-400">{reviewingSubmission.fileSize || '3.5 MB'}</span>
+                    <span className="text-[11px] text-slate-400 block">{reviewingSubmission.fileSize || '3.5 MB'}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => {
                       setPreviewSubmissionData({
@@ -2221,7 +2242,7 @@ export const InstructorAssignmentManagement: React.FC = () => {
                         maxScore: reviewingSubmission.maxMarks,
                       });
                     }}
-                    className="px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-600 dark:text-brand-400 rounded-xl hover:bg-slate-100 transition"
+                    className="px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-600 dark:text-brand-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition shrink-0"
                   >
                     View Submission
                   </button>
@@ -2259,7 +2280,7 @@ export const InstructorAssignmentManagement: React.FC = () => {
                         showToast(`Downloading "${fName}"`);
                       }
                     }}
-                    className="px-3 py-1.5 text-xs font-semibold bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition flex items-center gap-1"
+                    className="px-3 py-1.5 text-xs font-semibold bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition flex items-center gap-1.5 shrink-0 shadow-xs"
                   >
                     <FiDownload className="w-3.5 h-3.5" /> Download
                   </button>
@@ -2366,6 +2387,156 @@ export const InstructorAssignmentManagement: React.FC = () => {
                 </Button>
                 <Button variant="danger" size="md" onClick={() => deletingAssignment && handleDeleteAssignment(deletingAssignment)}>
                   Yes, Delete Assignment
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ======================================================== */}
+      {/* MODAL: Instructor Assignment Question Preview */}
+      {/* ======================================================== */}
+      <AnimatePresence>
+        {viewingAssignment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden"
+              style={{ maxHeight: '90vh' }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-4 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md">
+                    <FiFileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
+                        Assignment Question Preview
+                      </h3>
+                      {renderTypeBadge(viewingAssignment.assignmentType)}
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {viewingAssignment.courseTitle}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setViewingAssignment(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <FiX className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-xs">
+                {isPublishedCourse && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-center gap-2.5 text-amber-800 dark:text-amber-300">
+                    <FiLock className="w-4 h-4 shrink-0 text-amber-600" />
+                    <span>
+                      <strong>Course is Published:</strong> Assignment structure and criteria are locked to protect student grading integrity.
+                    </span>
+                  </div>
+                )}
+
+                {/* Assignment Title & Criteria */}
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Assignment Title</span>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                      {viewingAssignment.title}
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Maximum Marks</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">
+                        {viewingAssignment.maxMarks} Marks
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Passing Marks</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs">
+                        {viewingAssignment.passingMarks} Marks
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Max Attempts</span>
+                      <span className="font-bold text-brand-600 dark:text-brand-400 text-xs">
+                        {viewingAssignment.maxSubmissionAttempts || 3} Attempts
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Allowed Formats</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300 font-bold text-[11px]">
+                        {viewingAssignment.allowedFileTypes.join(', ') || '.pdf, .zip'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Problem Statement / Description */}
+                {viewingAssignment.description && (
+                  <div className="space-y-1.5">
+                    <h5 className="font-bold text-slate-800 dark:text-slate-200 text-xs">Problem Statement & Objectives</h5>
+                    <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      {viewingAssignment.description}
+                    </div>
+                  </div>
+                )}
+
+                {/* Instructions */}
+                {viewingAssignment.instructions && viewingAssignment.instructions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <h5 className="font-bold text-slate-800 dark:text-slate-200 text-xs">Submission Guidelines & Instructions</h5>
+                    <ul className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5 list-disc list-inside text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {viewingAssignment.instructions.map((inst, idx) => (
+                        <li key={idx}>{inst}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Attached Starter File */}
+                {viewingAssignment.attachmentUrl && (
+                  <div className="space-y-1.5">
+                    <h5 className="font-bold text-slate-800 dark:text-slate-200 text-xs">Attached Reference / Starter Material</h5>
+                    <div className="p-3.5 bg-indigo-50/50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-900/60 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                          <FiPaperclip className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">
+                            {viewingAssignment.attachmentFileName || 'Starter_Project_Reference.zip'}
+                          </p>
+                          <span className="text-[10px] text-slate-400 block">{viewingAssignment.attachmentSize || 'Resource File'}</span>
+                        </div>
+                      </div>
+                      <a
+                        href={viewingAssignment.attachmentUrl}
+                        download={viewingAssignment.attachmentFileName || 'Starter_File'}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-1.5 shrink-0 shadow-xs transition"
+                      >
+                        <FiDownload className="w-3.5 h-3.5" /> Download
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                <Button variant="primary" size="sm" onClick={() => setViewingAssignment(null)}>
+                  Close Preview
                 </Button>
               </div>
             </motion.div>

@@ -143,28 +143,51 @@ export const LiveKitClassroom: React.FC<LiveKitClassroomProps> = ({
     setIsAudioOn(!isAudioOn);
   };
 
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const pipVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Sync PiP video element with local webcam stream
+  useEffect(() => {
+    if (isScreenSharing && isVideoOn && pipVideoRef.current && localStreamRef.current) {
+      pipVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [isScreenSharing, isVideoOn]);
+
   const toggleScreenShare = async () => {
     if (!isScreenSharing) {
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false,
+        });
+        screenStreamRef.current = screenStream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = screenStream;
         }
         setIsScreenSharing(true);
-        screenStream.getVideoTracks()[0].onended = () => {
-          setIsScreenSharing(false);
-          if (localVideoRef.current && localStreamRef.current) {
-            localVideoRef.current.srcObject = localStreamRef.current;
-          }
-        };
+
+        const track = screenStream.getVideoTracks()[0];
+        if (track) {
+          track.onended = () => {
+            stopScreenShare();
+          };
+        }
       } catch (err) {
         console.warn('Screen share cancelled or failed:', err);
       }
     } else {
-      if (localVideoRef.current && localStreamRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
-      }
-      setIsScreenSharing(false);
+      stopScreenShare();
+    }
+  };
+
+  const stopScreenShare = () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+    }
+    setIsScreenSharing(false);
+    if (localVideoRef.current && localStreamRef.current && isVideoOn) {
+      localVideoRef.current.srcObject = localStreamRef.current;
     }
   };
 
@@ -216,7 +239,7 @@ export const LiveKitClassroom: React.FC<LiveKitClassroomProps> = ({
       {/* Main Video Viewport */}
       <div className="flex-1 p-4 flex flex-col items-center justify-center relative overflow-hidden">
         <div className="w-full max-w-4xl h-full max-h-[620px] bg-slate-900 border border-slate-800 rounded-3xl relative overflow-hidden shadow-2xl flex items-center justify-center">
-          {mediaPermissionError ? (
+          {mediaPermissionError && !isScreenSharing ? (
             <div className="flex flex-col items-center justify-center space-y-4 p-8 text-center max-w-md">
               <div className="w-16 h-16 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
                 <FiVideoOff className="w-8 h-8" />
@@ -233,14 +256,37 @@ export const LiveKitClassroom: React.FC<LiveKitClassroomProps> = ({
                 <span>Grant / Retry Camera</span>
               </button>
             </div>
-          ) : isVideoOn ? (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover rounded-3xl -scale-x-100"
-            />
+          ) : isScreenSharing || isVideoOn ? (
+            <>
+              {/* Main Video: Unflipped & Uncropped for Screen Sharing */}
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full rounded-3xl transition-all duration-300 ${
+                  isScreenSharing
+                    ? 'object-contain bg-slate-950'
+                    : 'object-cover -scale-x-100'
+                }`}
+              />
+
+              {/* Picture-in-Picture Webcam Box when Screen Sharing is Active */}
+              {isScreenSharing && isVideoOn && (
+                <div className="absolute bottom-4 right-4 w-40 h-28 sm:w-48 sm:h-32 rounded-2xl overflow-hidden border-2 border-purple-500/80 shadow-2xl bg-slate-900 z-20">
+                  <video
+                    ref={pipVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover -scale-x-100"
+                  />
+                  <div className="absolute bottom-1.5 left-2 text-[10px] font-bold text-white bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
+                    {displayName} (Camera)
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center space-y-3 p-6 text-center">
               <div className="w-20 h-20 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
@@ -261,7 +307,7 @@ export const LiveKitClassroom: React.FC<LiveKitClassroomProps> = ({
 
           {/* User Badge Overlay */}
           <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-800/80 flex items-center gap-2 z-10">
-            <span className={`w-2 h-2 rounded-full ${isVideoOn ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+            <span className={`w-2 h-2 rounded-full ${isVideoOn || isScreenSharing ? 'bg-emerald-400' : 'bg-rose-400'}`} />
             <span className="text-xs font-bold text-white">{displayName}</span>
             {isHost && (
               <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-purple-600 text-white">Host</span>
@@ -271,9 +317,9 @@ export const LiveKitClassroom: React.FC<LiveKitClassroomProps> = ({
 
           {/* Screen Sharing Indicator */}
           {isScreenSharing && (
-            <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-blue-600/90 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
+            <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-indigo-600/90 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg z-10">
               <FiMonitor className="w-3.5 h-3.5" />
-              <span>Sharing Screen</span>
+              <span>Screen Sharing Active</span>
             </div>
           )}
         </div>

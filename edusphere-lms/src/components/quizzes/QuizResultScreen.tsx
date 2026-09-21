@@ -60,8 +60,8 @@ export const QuizResultScreen: React.FC<QuizResultScreenProps> = ({
           : selected.length > 0;
       }
       return (
-        (q.correctOptionId && (q.userSelectedOptionId === q.correctOptionId || (Array.isArray(q.correctOptionId) && (q.correctOptionId as string[]).includes(q.userSelectedOptionId)))) ||
-        (q.correctAnswer && String(q.userSelectedOptionId).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase())
+        (q.correctOptionId && (q.userSelectedOptionId === q.correctOptionId || (Array.isArray(q.correctOptionId) && q.userSelectedOptionId && (q.correctOptionId as string[]).includes(q.userSelectedOptionId)))) ||
+        (q.correctAnswer && String(q.userSelectedOptionId || '').trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase())
       );
     }).length;
     const totalQuestions = questionsResult.length || 1;

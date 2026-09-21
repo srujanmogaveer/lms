@@ -13,13 +13,24 @@ export const LearningProgressSection: React.FC<LearningProgressSectionProps> = (
   weeklyActivity,
   overallProgress,
 }) => {
-  const [activeDay, setActiveDay] = useState<WeeklyActivity | null>(weeklyActivity[3] || weeklyActivity[0]);
+  // Auto-detect today's index (Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6)
+  const currentDayIndex = (() => {
+    const d = new Date().getDay();
+    return d === 0 ? 6 : d - 1;
+  })();
 
-  const totalHoursWeekly = weeklyActivity.reduce((acc, curr) => acc + curr.hours, 0);
-  const targetHoursWeekly = weeklyActivity.reduce((acc, curr) => acc + curr.targetHours, 0);
-  const weeklyPercentage = Math.min(100, Math.round((totalHoursWeekly / targetHoursWeekly) * 100));
+  const [activeDay, setActiveDay] = useState<WeeklyActivity | null>(
+    weeklyActivity[currentDayIndex] || weeklyActivity[0]
+  );
 
-  const maxHours = Math.max(...weeklyActivity.map((d) => d.hours), 6);
+  const totalHoursWeekly = Math.round(weeklyActivity.reduce((acc, curr) => acc + (curr.hours || 0), 0) * 10) / 10;
+  const targetHoursWeekly = weeklyActivity.reduce((acc, curr) => acc + (curr.targetHours || 2), 0) || 14;
+  const weeklyPercentage = targetHoursWeekly > 0
+    ? Math.min(100, Math.round((totalHoursWeekly / targetHoursWeekly) * 100))
+    : 0;
+
+  const maxHours = Math.max(...weeklyActivity.map((d) => d.hours || 0), 5);
+  const isGoalOnTrack = overallProgress >= 50 || weeklyPercentage >= 50;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -31,8 +42,12 @@ export const LearningProgressSection: React.FC<LearningProgressSectionProps> = (
               <FiTarget className="w-5 h-5 text-brand-600 dark:text-brand-400" />
               Overall Goal Progress
             </h3>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-full">
-              On Track 🚀
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+              isGoalOnTrack
+                ? 'text-emerald-600 bg-emerald-100 dark:bg-emerald-950/80'
+                : 'text-amber-600 bg-amber-100 dark:bg-amber-950/80'
+            }`}>
+              {isGoalOnTrack ? 'On Track 🚀' : 'In Progress ⏳'}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">

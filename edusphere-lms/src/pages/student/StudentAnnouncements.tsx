@@ -17,7 +17,6 @@ import { Badge } from '../../components/ui/Badge';
 import { BaseModal } from '../../components/dashboard/DashboardModals';
 import { SkeletonLoader } from '../../components/loaders/Loaders';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { showErrorAlert } from '../../utils/swalAlerts';
 import { announcementService } from '../../services/announcementService';
 import type { AnnouncementItem } from '../../types';
 

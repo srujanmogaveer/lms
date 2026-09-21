@@ -770,7 +770,11 @@ export const InstructorQuizManagement: React.FC = () => {
                       updatedInlineQuestions[origIdx] = {
                         ...updatedInlineQuestions[origIdx],
                         id: createdQ.id,
-                        options: createdQ.options || updatedInlineQuestions[origIdx].options,
+                        options: (createdQ.options || updatedInlineQuestions[origIdx].options).map((opt) => ({
+                          id: opt.id || '',
+                          text: opt.text,
+                          isCorrect: Boolean(opt.isCorrect),
+                        })),
                       };
                     }
                   });
@@ -876,7 +880,7 @@ export const InstructorQuizManagement: React.FC = () => {
                   updatedInlineQuestions[idx] = {
                     ...updatedInlineQuestions[idx],
                     id: createdQ.id,
-                    options: createdQ.options || updatedInlineQuestions[idx].options,
+                    options: (createdQ.options as any) || updatedInlineQuestions[idx].options,
                   };
                 }
               });

@@ -235,6 +235,23 @@ export const adminService = {
   },
 
   /**
+   * 1-Click Automated Payout Disbursement via RazorpayX (Method B)
+   */
+  autoDisburseInstructorPayout: async (data: {
+    instructorId: string;
+    amount: number;
+    notes?: string;
+    preferredMethod?: 'auto' | 'Bank Account' | 'UPI ID';
+  }) => {
+    return api.post<{
+      payout: any;
+      financials: any;
+      provider: string;
+      utr: string;
+    }>('/admin/payouts/auto-disburse', data);
+  },
+
+  /**
    * Get all persistent instructor payouts
    */
   getAllInstructorPayouts: async () => {

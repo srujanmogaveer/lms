@@ -7,6 +7,8 @@ export interface FrontendEnrollment {
   courseId: string;
   courseTitle?: string;
   courseThumbnail?: string;
+  durationHours?: number;
+  lessonsCount?: number;
   instructorId?: string;
   instructorName?: string;
   instructorAvatar?: string;

@@ -68,7 +68,13 @@ export const Contact: React.FC = () => {
   };
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    let finalValue = value;
+    if (field === 'phone') {
+      finalValue = value.replace(/\D/g, '').slice(0, 10);
+    } else if (field === 'email') {
+      finalValue = value.trim();
+    }
+    setFormData((prev) => ({ ...prev, [field]: finalValue }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
@@ -85,18 +91,17 @@ export const Contact: React.FC = () => {
     }
 
     // 2. Email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
     if (!formData.email.trim()) {
       newErrors.email = 'Email address is required.';
     } else if (!emailRegex.test(formData.email.trim())) {
-      newErrors.email = 'Please provide a valid email address (e.g. name@example.com).';
+      newErrors.email = 'Please enter a valid email address (e.g. name@example.com).';
     }
 
-    // 3. Phone (optional, but validated if provided)
+    // 3. Phone (optional, but must be exactly 10 digits if provided)
     if (formData.phone.trim()) {
-      const cleanPhone = formData.phone.replace(/[\s\-()+]/g, '');
-      if (cleanPhone.length < 7 || cleanPhone.length > 15 || !/^\d+$/.test(cleanPhone)) {
-        newErrors.phone = 'Please enter a valid phone number (7 to 15 digits).';
+      if (!/^\d{10}$/.test(formData.phone.trim())) {
+        newErrors.phone = 'Phone number must be exactly 10 digits.';
       }
     }
 
@@ -264,7 +269,7 @@ export const Contact: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Alex Johnson"
+                    placeholder="Enter your name"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
                     className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-white/[0.12] bg-slate-50 dark:bg-white/[0.04] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
@@ -278,7 +283,10 @@ export const Contact: React.FC = () => {
                   </label>
                   <input
                     type="email"
-                    placeholder="e.g. alex.johnson@example.com"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck="false"
+                    placeholder="Enter your email address"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-white/[0.12] bg-slate-50 dark:bg-white/[0.04] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
@@ -294,7 +302,9 @@ export const Contact: React.FC = () => {
                   </label>
                   <input
                     type="tel"
-                    placeholder="e.g. +91 9876543210"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="e.g. 9876543210"
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
                     className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-white/[0.12] bg-slate-50 dark:bg-white/[0.04] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"

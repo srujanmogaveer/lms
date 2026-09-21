@@ -18,6 +18,7 @@ import {
 } from '../../components/mycourses/MyCoursesModals';
 import { CertificatePreviewDocument } from '../../components/certificates/CertificatePreviewDocument';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { calculateEarnedLearningHours } from '../../utils/formatters';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
@@ -78,10 +79,12 @@ export const StudentMyCourses: React.FC = () => {
               : 'not_started';
 
           const actualDurationHours =
-            matchedCourse?.durationHours ||
-            enr.durationHours ||
-            Number(((totalLessonsCount * 20) / 60).toFixed(1)) ||
-            2;
+            (matchedCourse?.durationHours && matchedCourse.durationHours > 0)
+              ? matchedCourse.durationHours
+              : (enr.durationHours && enr.durationHours > 0)
+              ? enr.durationHours
+              : Number(((totalLessonsCount * 20) / 60).toFixed(1)) ||
+                2;
 
           return {
             id: enr.id,
@@ -191,7 +194,6 @@ export const StudentMyCourses: React.FC = () => {
         upcomingActivities: activities.slice(0, 3),
       };
     },
-    staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     enabled: !!currentUser?.id,
@@ -389,13 +391,14 @@ export const StudentMyCourses: React.FC = () => {
             totalHoursLearned={
               Math.round(
                 enrolledCourses.reduce((acc, curr) => {
-                  const courseHours = curr.course.durationHours || 2;
-                  const earnedHours =
-                    curr.enrollmentStatus === 'completed'
-                      ? courseHours
-                      : curr.totalLessons > 0
-                      ? (curr.completedLessons / curr.totalLessons) * courseHours
-                      : (curr.progress / 100) * courseHours;
+                  const courseDuration = curr.course.durationHours || 2;
+                  const earnedHours = calculateEarnedLearningHours(
+                    courseDuration,
+                    curr.completedLessons,
+                    curr.totalLessons,
+                    curr.enrollmentStatus === 'completed',
+                    curr.progress
+                  );
                   return acc + earnedHours;
                 }, 0) * 10
               ) / 10

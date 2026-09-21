@@ -38,6 +38,7 @@ import { ReviewModal } from '../../components/reviews/ReviewModal';
 import { Button } from '../../components/ui/Button';
 import { SkeletonLoader } from '../../components/loaders/Loaders';
 import { showToastAlert } from '../../utils/swalAlerts';
+import { formatLessonDuration } from '../../utils/formatters';
 import { useAuth } from '../../contexts/AuthContext';
 
 import type {
@@ -176,10 +177,7 @@ export const StudentLearningPlayer: React.FC = () => {
             moduleId: m.id,
             moduleTitle: m.title,
             title: l.title,
-            duration:
-              l.lessonType === 'PDF' || l.lessonType?.toLowerCase() === 'pdf'
-                ? 'PDF'
-                : `${l.durationMinutes || 10}:00`,
+            duration: formatLessonDuration(l.durationMinutes, l.lessonType),
             type: (l.lessonType?.toLowerCase() as 'video' | 'pdf' | 'text' | 'resource') || 'video',
             isCompleted: completedLessonSet.has(l.id),
             isBookmarked: false,

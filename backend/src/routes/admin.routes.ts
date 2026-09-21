@@ -142,7 +142,7 @@ router.delete('/users/:id', (req, res, next) => adminController.deleteUser(req, 
 
 import { paymentController } from '../controllers/payment.controller';
 import { payoutController } from '../controllers/payout.controller';
-import { recordPayoutSchema } from '../validators/payout.validator';
+import { recordPayoutSchema, autoDisbursePayoutSchema } from '../validators/payout.validator';
 
 /**
  * Admin Payments & Orders Management
@@ -154,6 +154,11 @@ router.get('/payments', (req, res, next) => paymentController.getAdminPayments(r
  */
 router.post('/payouts', validateRequest({ body: recordPayoutSchema }), (req, res, next) =>
   payoutController.recordPayout(req, res, next)
+);
+router.post(
+  '/payouts/auto-disburse',
+  validateRequest({ body: autoDisbursePayoutSchema }),
+  (req, res, next) => payoutController.autoDisbursePayout(req, res, next)
 );
 router.get('/payouts', (req, res, next) => payoutController.getAllPayouts(req, res, next));
 

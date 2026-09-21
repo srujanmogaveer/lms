@@ -15,7 +15,8 @@ import {
   FiUserCheck,
   FiCheck,
   FiExternalLink,
-  FiTrash2
+  FiTrash2,
+  FiMessageSquare,
 } from 'react-icons/fi';
 import { useNotifications, type AppNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -84,6 +85,8 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ isOpen, on
         return <FiUserCheck className="w-4 h-4 text-indigo-500" />;
       case 'announcement':
         return <FiInfo className="w-4 h-4 text-sky-500" />;
+      case 'forum':
+        return <FiMessageSquare className="w-4 h-4 text-violet-500" />;
       default:
         if (item.type === 'success') return <FiCheckCircle className="w-4 h-4 text-emerald-500" />;
         if (item.type === 'warning') return <FiAlertCircle className="w-4 h-4 text-amber-500" />;

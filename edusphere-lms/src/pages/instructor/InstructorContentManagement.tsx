@@ -72,7 +72,7 @@ export const InstructorContentManagement: React.FC = () => {
     coursesList[0] || {
       id: selectedCourseId || '',
       title: 'Loading Course...',
-      thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800',
+      thumbnail: '',
       category: 'General',
       difficulty: 'Beginner',
     };

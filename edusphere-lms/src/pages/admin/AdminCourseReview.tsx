@@ -560,7 +560,7 @@ const REVIEW_CHECKLIST_ITEMS = [
                           key={reviewData.promoVideoUrl}
                           showDetailsBanner={false}
                           lesson={{
-                            id: `review-promo-${reviewData.id}`,
+                            id: `review-promo-${reviewData.courseId || 'promo'}`,
                             moduleId: 'promo',
                             moduleTitle: 'Course Overview',
                             title: `${reviewData.title} - Promotional Video`,

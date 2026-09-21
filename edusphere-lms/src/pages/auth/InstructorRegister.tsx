@@ -123,7 +123,7 @@ export const InstructorRegister: React.FC = () => {
         if (!value || !value.trim()) return 'Specialization / Domain is required.';
         return '';
       case 'experience':
-        if (!value || !value.trim()) return 'Teaching experience is required.';
+        if (!value || !value.trim()) return 'Experience is required.';
         return '';
       case 'qualification':
         if (!value || !value.trim()) return 'Highest qualification is required.';
@@ -666,7 +666,7 @@ export const InstructorRegister: React.FC = () => {
           {/* Experience */}
           <div className="space-y-1.5">
             <label htmlFor="experience" className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-              Teaching Experience <span className="text-rose-500 font-bold">*</span>
+              Experience <span className="text-rose-500 font-bold">*</span>
             </label>
             <div className="relative">
               <FiBriefcase className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition-colors ${fieldErrors.experience && touched.experience ? 'text-rose-500' : 'text-slate-400'}`} />

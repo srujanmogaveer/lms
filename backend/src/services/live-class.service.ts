@@ -1122,10 +1122,10 @@ export class LiveClassService {
   /**
    * 11. Student Ask Question
    */
-  public async askQuestion(studentId: string, classId: string, questionText: string): Promise<LiveClassQAItem> {
+  public async askQuestion(userId: string, classId: string, questionText: string): Promise<LiveClassQAItem> {
     const { data: liveClass, error: lcErr } = await supabaseAdmin
       .from('live_classes')
-      .select('id, course_id, status, audience_type, selected_student_ids')
+      .select('id, course_id, instructor_id, status, audience_type, selected_student_ids')
       .eq('id', classId)
       .maybeSingle();
 
@@ -1133,23 +1133,38 @@ export class LiveClassService {
       throw ApiError.badRequest('Cannot ask questions for an inactive or cancelled live class');
     }
 
-    // Verify Enrollment (Active or Completed)
-    const { data: enr } = await supabaseAdmin
-      .from('enrollments')
-      .select('id')
-      .eq('course_id', liveClass.course_id)
-      .eq('student_id', studentId)
-      .neq('status', 'Cancelled')
-      .maybeSingle();
+    const isInstructor = liveClass.instructor_id === userId;
 
-    if (!enr) {
-      throw ApiError.forbidden('You must be enrolled in the course to ask questions');
-    }
+    if (!isInstructor) {
+      // Check user role from profiles to also allow admin
+      const { data: userProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (liveClass.audience_type === 'Selected Students') {
-      const allowed = Array.isArray(liveClass.selected_student_ids) && liveClass.selected_student_ids.includes(studentId);
-      if (!allowed) {
-        throw ApiError.forbidden('You are not authorized for this private live session');
+      const isAdmin = userProfile?.role === 'admin';
+
+      if (!isAdmin) {
+        // Verify Enrollment (Active or Completed)
+        const { data: enr } = await supabaseAdmin
+          .from('enrollments')
+          .select('id')
+          .eq('course_id', liveClass.course_id)
+          .eq('student_id', userId)
+          .neq('status', 'Cancelled')
+          .maybeSingle();
+
+        if (!enr) {
+          throw ApiError.forbidden('You must be enrolled in the course to ask questions');
+        }
+
+        if (liveClass.audience_type === 'Selected Students') {
+          const allowed = Array.isArray(liveClass.selected_student_ids) && liveClass.selected_student_ids.includes(userId);
+          if (!allowed) {
+            throw ApiError.forbidden('You are not authorized for this private live session');
+          }
+        }
       }
     }
 
@@ -1157,11 +1172,11 @@ export class LiveClassService {
       .from('live_class_qa')
       .insert({
         class_id: classId,
-        student_id: studentId,
+        student_id: userId,
         question_text: questionText.trim(),
         likes_count: 0,
         is_pinned: false,
-        is_answered: false,
+        is_answered: isInstructor,
       })
       .select('*, profiles(id, full_name, avatar_url)')
       .single();

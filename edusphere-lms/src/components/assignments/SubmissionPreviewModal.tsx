@@ -429,7 +429,7 @@ export const SubmissionPreviewModal: React.FC<SubmissionPreviewModalProps> = ({
                   className="bg-brand-600 hover:bg-brand-700 text-white font-bold flex items-center gap-2 shadow-md"
                 >
                   <FiDownload className="w-4 h-4" />
-                  <span>Download {fileName}</span>
+                  <span>Download</span>
                 </Button>
               )}
             </div>

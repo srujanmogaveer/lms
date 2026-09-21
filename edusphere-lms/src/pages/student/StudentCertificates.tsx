@@ -67,7 +67,10 @@ export const StudentCertificates: React.FC = () => {
   const totalCount = certificates.length;
   const earnedCount = useMemo(() => certificates.filter((c) => c.status === 'earned').length, [certificates]);
   const pendingCount = useMemo(() => certificates.filter((c) => c.status === 'pending' || c.status === 'locked').length, [certificates]);
-  const totalLearningHours = useMemo(() => certificates.reduce((acc, curr) => acc + curr.learningHours, 0), [certificates]);
+  const totalLearningHours = useMemo(() => {
+    const rawSum = certificates.reduce((acc, curr) => acc + (Number(curr.learningHours) || 0), 0);
+    return Math.round(rawSum * 10) / 10;
+  }, [certificates]);
 
   // Filter & Sort Logic
   const filteredCertificates = useMemo(() => {

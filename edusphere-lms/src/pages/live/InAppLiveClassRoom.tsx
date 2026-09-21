@@ -378,8 +378,18 @@ export const InAppLiveClassRoom: React.FC = () => {
                   <div key={q.id} className={`p-3 rounded-2xl border text-xs space-y-2 transition-all ${q.isPinned ? "bg-amber-950/40 border-amber-700/60 shadow-xs" : "bg-slate-800/80 border-slate-700/80"}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <img src={q.studentAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"} alt={q.studentName} className="w-5 h-5 rounded-full object-cover" />
-                        <span className="font-bold text-slate-200 text-[11px]">{q.studentName || "Student"}</span>
+                        <img 
+                          src={q.studentAvatar && !q.studentAvatar.includes('photo-1535713875002') ? q.studentAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(q.studentName || 'Participant')}&background=6366f1&color=fff&size=100`} 
+                          alt={q.studentName} 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(q.studentName || 'Participant')}&background=6366f1&color=fff&size=100`;
+                          }}
+                          className="w-5 h-5 rounded-full object-cover border border-slate-700 shrink-0" 
+                        />
+                        <span className="font-bold text-slate-200 text-[11px]">{q.studentName || "Participant"}</span>
+                        {q.studentId === classData?.instructorId && (
+                          <span className="px-1.5 rounded text-[9px] font-black bg-purple-600 text-white uppercase">Instructor</span>
+                        )}
                         {q.isPinned && <span className="px-1.5 rounded text-[9px] font-black bg-amber-400 text-slate-950 uppercase">Pinned</span>}
                         {q.isAnswered && <span className="px-1.5 rounded text-[9px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">Answered</span>}
                       </div>
@@ -410,14 +420,25 @@ export const InAppLiveClassRoom: React.FC = () => {
               )}
             </div>
 
-            {!isInstructor && (
-              <form onSubmit={handleAskQuestion} className="p-3 border-t border-slate-800 bg-slate-900/90 flex gap-2">
-                <input type="text" placeholder="Ask a question to the instructor..." value={newQuestionText} onChange={(e) => setNewQuestionText(e.target.value)} disabled={isSubmittingQ} className="flex-1 px-3 py-2 text-xs bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                <button type="submit" disabled={isSubmittingQ || !newQuestionText.trim()} className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                  <FiSend className="w-3.5 h-3.5" />
-                </button>
-              </form>
-            )}
+            {/* Message / Question Input Form (For Both Instructors and Students) */}
+            <form onSubmit={handleAskQuestion} className="p-3 border-t border-slate-800 bg-slate-900/90 flex gap-2">
+              <input 
+                type="text" 
+                placeholder={isInstructor ? "Post a message or discussion topic to the class..." : "Ask a question to the instructor..."} 
+                value={newQuestionText} 
+                onChange={(e) => setNewQuestionText(e.target.value)} 
+                disabled={isSubmittingQ} 
+                className="flex-1 px-3 py-2 text-xs bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500" 
+              />
+              <button 
+                type="submit" 
+                disabled={isSubmittingQ || !newQuestionText.trim()} 
+                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-md transition"
+                title={isInstructor ? "Post Message" : "Ask Question"}
+              >
+                <FiSend className="w-3.5 h-3.5" />
+              </button>
+            </form>
           </aside>
         )}
 
@@ -458,7 +479,14 @@ export const InAppLiveClassRoom: React.FC = () => {
                 participants.map((p) => (
                   <div key={p.id} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-xs transition-all ${p.isActive ? "bg-emerald-950/30 border-emerald-800/50" : "bg-slate-800/60 border-slate-700/60 opacity-60"}`}>
                     <div className="relative shrink-0">
-                      <img src={p.userAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"} alt={p.userName} className="w-7 h-7 rounded-full object-cover border border-slate-700" />
+                      <img 
+                        src={p.userAvatar && !p.userAvatar.includes('photo-1535713875002') ? p.userAvatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(p.userName || 'User')}&background=6366f1&color=fff&size=100`} 
+                        alt={p.userName} 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.userName || 'User')}&background=6366f1&color=fff&size=100`;
+                        }}
+                        className="w-7 h-7 rounded-full object-cover border border-slate-700" 
+                      />
                       <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${p.isActive ? "bg-emerald-400" : "bg-slate-500"}`} />
                     </div>
                     <div className="min-w-0 flex-1">

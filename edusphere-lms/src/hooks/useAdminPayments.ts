@@ -230,9 +230,30 @@ export function useAdminPayments() {
     },
   });
 
+  const autoDisbursePayoutMutation = useMutation({
+    mutationFn: async (payload: {
+      instructorId: string;
+      amount: number;
+      notes?: string;
+      preferredMethod?: 'auto' | 'Bank Account' | 'UPI ID';
+    }) => {
+      const res = await adminService.autoDisburseInstructorPayout(payload);
+      if (!res.success) {
+        throw new Error(res.message || 'Failed to auto-disburse payout');
+      }
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_PAYMENTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard-stats'] });
+    },
+  });
+
   return {
     ...query,
     recordPayout: recordPayoutMutation.mutateAsync,
     isSubmittingPayout: recordPayoutMutation.isPending,
+    autoDisbursePayout: autoDisbursePayoutMutation.mutateAsync,
+    isAutoDisbursing: autoDisbursePayoutMutation.isPending,
   };
 }

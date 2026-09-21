@@ -214,6 +214,20 @@ export class NotificationService {
       if (!error && data) {
         return this.formatNotification(data);
       }
+
+      // If insert failed due to check constraint on category (e.g. 'forum' not in older schema), fallback to 'course'
+      if (error) {
+        const fallbackRow = { ...notifRow, category: 'course' };
+        const { data: fbData, error: fbErr } = await supabaseAdmin
+          .from('notifications')
+          .insert(fallbackRow)
+          .select()
+          .single();
+
+        if (!fbErr && fbData) {
+          return this.formatNotification(fbData);
+        }
+      }
     } catch (err: any) {
       logger.warn(`Failed to insert notification into Supabase: ${err.message}`);
     }
@@ -260,6 +274,19 @@ export class NotificationService {
 
       if (!error && Array.isArray(data)) {
         return data.map((d) => this.formatNotification(d));
+      }
+
+      // Fallback with 'course' category if bulk insert had constraint issue
+      if (error) {
+        const fallbackRows = notifRows.map((r) => ({ ...r, category: 'course' }));
+        const { data: fbData, error: fbErr } = await supabaseAdmin
+          .from('notifications')
+          .insert(fallbackRows)
+          .select();
+
+        if (!fbErr && Array.isArray(fbData)) {
+          return fbData.map((d) => this.formatNotification(d));
+        }
       }
     } catch (err: any) {
       logger.warn(`Failed to bulk insert notifications in Supabase: ${err.message}`);

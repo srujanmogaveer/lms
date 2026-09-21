@@ -505,7 +505,7 @@ export class ProgressService {
       courseTitle: course?.title || 'Course Masterclass',
       courseDescription: course?.short_description || course?.full_description || '',
       courseThumbnail: course?.thumbnail || '',
-      durationHours: course?.duration_hours || Math.round((progress.totalLessons * 15) / 60) || 4,
+      durationHours: Number(Number(course?.duration_hours || Math.round((progress.totalLessons * 15) / 60) || 4).toFixed(2)),
       instructorId: instructorProfile?.id || '',
       instructorName: instructorProfile?.full_name || 'EduSphere Lead Instructor',
       instructorTitle: instructorProfile?.headline || instructorProfile?.qualification || 'Lead Instructor & Mentor',
@@ -645,7 +645,7 @@ export class ProgressService {
         verificationUrl: `https://edusphere.edu/verify/${stableCertCode}`,
         downloadUrl: '#',
         status: isCompleted ? 'earned' : lessonPct > 0 ? 'pending' : 'locked',
-        learningHours: course.duration_hours || Math.round((totalLessons * 15) / 60) || 4,
+        learningHours: Number(Number(course.duration_hours || Math.round((totalLessons * 15) / 60) || 4).toFixed(2)),
         requirements: {
           lessonsCompletionPercent: lessonPct,
           assignmentsCompletionPercent: asgPct,

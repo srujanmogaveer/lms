@@ -465,7 +465,7 @@ export class ForumService {
           await supabaseAdmin.from('discussion_attachments').insert(attachmentsToInsert);
         }
 
-        // Notify Instructor if question posted by student
+        // Dispatch notification based on role
         if (userRole === 'student' && instructorId && instructorId !== userId) {
           try {
             await NotificationService.createNotification({
@@ -479,6 +479,35 @@ export class ForumService {
             });
           } catch (notifErr: any) {
             logger.warn(`Failed to dispatch discussion notification: ${notifErr.message}`);
+          }
+        } else if (userRole === 'instructor') {
+          // Notify enrolled students when instructor creates a discussion topic
+          try {
+            const { data: enrollments } = await supabaseAdmin
+              .from('enrollments')
+              .select('student_id')
+              .eq('course_id', dto.courseId)
+              .in('status', ['Active', 'Completed']);
+
+            if (Array.isArray(enrollments) && enrollments.length > 0) {
+              const studentNotifs = enrollments
+                .filter((e) => e.student_id && e.student_id !== userId)
+                .map((e) => ({
+                  userId: e.student_id,
+                  title: `New Course Discussion: ${inserted.title}`,
+                  message: `Your instructor posted a new topic in "${courseTitle}": "${inserted.title.slice(0, 80)}"`,
+                  type: 'info' as const,
+                  category: 'forum' as const,
+                  actionUrl: '/student/forum',
+                  sourceId: inserted.id,
+                }));
+
+              if (studentNotifs.length > 0) {
+                await NotificationService.createBulkNotifications(studentNotifs);
+              }
+            }
+          } catch (notifErr: any) {
+            logger.warn(`Failed to dispatch bulk discussion notifications to students: ${notifErr.message}`);
           }
         }
 
@@ -628,7 +657,11 @@ export class ForumService {
     try {
       const { data: discussion, error: discErr } = await supabaseAdmin
         .from('course_discussions')
-        .select('id, author_id, title, is_locked')
+        .select(`
+          id, author_id, title, is_locked, course_id,
+          author:author_id(id, full_name, role),
+          courses:course_id(id, title, instructor_id)
+        `)
         .eq('id', discussionId)
         .single();
 
@@ -642,6 +675,9 @@ export class ForumService {
 
       discussionAuthorId = discussion.author_id;
       discussionTitle = discussion.title;
+      const courseTitle = (discussion as any).courses?.title || 'Course Discussion';
+      const instructorId = (discussion as any).courses?.instructor_id;
+      const authorRole = (discussion as any).author?.role || 'student';
 
       const { data: inserted, error: insertErr } = await supabaseAdmin
         .from('discussion_replies')
@@ -669,20 +705,41 @@ export class ForumService {
           await supabaseAdmin.from('discussion_attachments').insert(attachmentsToInsert);
         }
 
-        // Notify Discussion Author (if reply by someone else)
+        // 1. Notify Discussion Author (if reply is by someone else)
         if (discussionAuthorId && discussionAuthorId !== userId) {
           try {
             await NotificationService.createNotification({
               userId: discussionAuthorId,
               title: `New Reply on "${discussionTitle.slice(0, 40)}"`,
               message: `${userRole === 'instructor' ? 'An instructor' : 'A peer'} replied: "${dto.content.slice(0, 80)}"`,
-              type: 'info',
+              type: userRole === 'instructor' ? 'success' : 'info',
               category: 'forum',
-              actionUrl: `/student/forum`,
+              actionUrl: authorRole === 'instructor' ? '/instructor/forum' : '/student/forum',
               sourceId: discussionId,
             });
           } catch (notifErr: any) {
             logger.warn(`Failed to dispatch reply notification: ${notifErr.message}`);
+          }
+        }
+
+        // 2. Also notify Course Instructor if reply was from student and instructor wasn't author
+        if (
+          instructorId &&
+          instructorId !== userId &&
+          instructorId !== discussionAuthorId
+        ) {
+          try {
+            await NotificationService.createNotification({
+              userId: instructorId,
+              title: `Discussion Activity: ${courseTitle}`,
+              message: `New reply on discussion topic "${discussionTitle.slice(0, 50)}": "${dto.content.slice(0, 70)}"`,
+              type: 'info',
+              category: 'forum',
+              actionUrl: '/instructor/forum',
+              sourceId: discussionId,
+            });
+          } catch (notifErr: any) {
+            logger.warn(`Failed to dispatch instructor forum reply notification: ${notifErr.message}`);
           }
         }
 
@@ -954,6 +1011,27 @@ export class ForumService {
         .single();
 
       if (!error && data) {
+        // If marked as accepted answer, notify the reply author
+        if (dto.isAcceptedAnswer && data.author_id) {
+          try {
+            const rawProfiles = (data as any).profiles;
+            const profileObj = Array.isArray(rawProfiles) ? rawProfiles[0] : rawProfiles;
+            const authorRole = profileObj?.role || 'student';
+
+            await NotificationService.createNotification({
+              userId: data.author_id,
+              title: `Accepted Answer! 🎯`,
+              message: `Your answer was chosen as the accepted solution by the instructor.`,
+              type: 'success',
+              category: 'forum',
+              actionUrl: authorRole === 'instructor' ? '/instructor/forum' : '/student/forum',
+              sourceId: data.discussion_id,
+            });
+          } catch (notifErr: any) {
+            logger.warn(`Failed to dispatch accepted answer notification: ${notifErr.message}`);
+          }
+        }
+
         return this.formatReply(data);
       }
     } catch (err: any) {

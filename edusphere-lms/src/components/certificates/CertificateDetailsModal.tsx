@@ -142,7 +142,9 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
 
             <div>
               <span className="text-slate-400 block text-[11px]">Study Time</span>
-              <span className="font-bold text-emerald-600 font-mono">{learningHours} Hours</span>
+              <span className="font-bold text-emerald-600 font-mono">
+                {parseFloat(Number(learningHours || 0).toFixed(1))} Hours
+              </span>
             </div>
           </div>
         </div>

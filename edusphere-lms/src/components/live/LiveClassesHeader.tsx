@@ -4,8 +4,6 @@ import {
   FiVideo,
   FiArrowLeft,
   FiRefreshCw,
-  FiToggleLeft,
-  FiToggleRight,
 } from 'react-icons/fi';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -16,8 +14,6 @@ interface LiveClassesHeaderProps {
   todayCount: number;
   upcomingCount: number;
   completedCount: number;
-  isEmptyState: boolean;
-  onToggleEmptyState: () => void;
   onRefresh: () => void;
   isLoading: boolean;
 }
@@ -28,8 +24,6 @@ export const LiveClassesHeader: React.FC<LiveClassesHeaderProps> = ({
   todayCount,
   upcomingCount,
   completedCount,
-  isEmptyState,
-  onToggleEmptyState,
   onRefresh,
   isLoading,
 }) => {
@@ -88,21 +82,6 @@ export const LiveClassesHeader: React.FC<LiveClassesHeaderProps> = ({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleEmptyState}
-            className="text-xs flex items-center gap-1.5 text-slate-600 dark:text-slate-300"
-            title="Toggle Empty State Demo"
-          >
-            {isEmptyState ? (
-              <FiToggleRight className="w-4 h-4 text-brand-600" />
-            ) : (
-              <FiToggleLeft className="w-4 h-4 text-slate-400" />
-            )}
-            <span>{isEmptyState ? 'Show Data' : 'Demo Empty'}</span>
-          </Button>
-
           <Button
             variant="outline"
             size="sm"

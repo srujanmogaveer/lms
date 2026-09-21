@@ -17,7 +17,9 @@ import {
   FiSend,
   FiRotateCcw,
   FiLoader,
-  FiAlertTriangle
+  FiAlertTriangle,
+  FiZap,
+  FiShield
 } from 'react-icons/fi';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -45,6 +47,8 @@ export const AdminInstructorPayouts: React.FC = () => {
     refetch,
     recordPayout,
     isSubmittingPayout,
+    autoDisbursePayout,
+    isAutoDisbursing,
   } = useAdminPayments();
 
   const studentPayments = useMemo(() => adminData?.studentPayments || [], [adminData]);
@@ -83,7 +87,8 @@ export const AdminInstructorPayouts: React.FC = () => {
   const [selectedPayoutForMarkPaid, setSelectedPayoutForMarkPaid] = useState<InstructorPayoutRecord | null>(null);
   const [selectedPayoutDetails, setSelectedPayoutDetails] = useState<InstructorPayoutRecord | null>(null);
 
-  // Mark as Paid form inputs
+  // Mark as Paid & Automated Disburse form inputs
+  const [payoutMode, setPayoutMode] = useState<'razorpayx' | 'manual'>('razorpayx');
   const [utrInput, setUtrInput] = useState<string>('');
   const [paymentDateInput, setPaymentDateInput] = useState<string>(new Date().toISOString().split('T')[0]);
   const [notesInput, setNotesInput] = useState<string>('');
@@ -148,6 +153,43 @@ export const AdminInstructorPayouts: React.FC = () => {
       return matchesSearch && matchesStatus && matchesMethod;
     });
   }, [payouts, searchQuery, payoutStatusFilter, paymentMethodFilter]);
+
+  // Execute 1-Click Instant Automated Payout (RazorpayX)
+  const handleAutoDisburse = async () => {
+    if (!selectedPayoutForMarkPaid) return;
+    if (!selectedPayoutForMarkPaid.hasValidPayoutDetails) {
+      alert('Instructor has not configured valid payout destination details (Bank Account or UPI ID).');
+      return;
+    }
+    if (payoutAmountInput <= 0) {
+      alert('Payout amount must be greater than 0.');
+      return;
+    }
+    if (payoutAmountInput > selectedPayoutForMarkPaid.amountPayableINR) {
+      alert('Insufficient available instructor balance.');
+      return;
+    }
+
+    try {
+      const res = await autoDisbursePayout({
+        instructorId: selectedPayoutForMarkPaid.instructorId,
+        amount: payoutAmountInput,
+        notes: notesInput || 'Automated 1-Click Instant Payout via RazorpayX',
+        preferredMethod: selectedPayoutForMarkPaid.payoutMethod === 'UPI ID' ? 'UPI ID' : 'Bank Account',
+      });
+
+      const utrReturned = res.data?.utr || 'PROCESSED';
+      showToast(
+        `⚡ Instant Payout of ${formatINR(payoutAmountInput)} successfully disbursed to ${selectedPayoutForMarkPaid.instructorName}! (UTR: ${utrReturned})`
+      );
+      setSelectedPayoutForMarkPaid(null);
+      setUtrInput('');
+      setNotesInput('');
+      setPayoutAmountInput(0);
+    } catch (err: any) {
+      alert(err.message || 'Failed to disburse automated payout.');
+    }
+  };
 
   // Execute Mark as Paid Action with strict balance and payout details validation
   const handleConfirmMarkAsPaid = async () => {
@@ -750,19 +792,38 @@ export const AdminInstructorPayouts: React.FC = () => {
 
                           {payout.payoutStatus === 'Pending' && (
                             payout.hasValidPayoutDetails ? (
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={() => {
-                                  setSelectedPayoutForMarkPaid(payout);
-                                  setPayoutAmountInput(payout.amountPayableINR);
-                                  setUtrInput(`UTR-${Math.floor(10000000 + Math.random() * 90000000)}`);
-                                  setPaymentDateInput(new Date().toISOString().split('T')[0]);
-                                }}
-                                className="text-xs py-1 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center gap-1 font-bold shadow-sm"
-                              >
-                                <FiSend className="w-3.5 h-3.5" /> Mark as Paid
-                              </Button>
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  onClick={() => {
+                                    setSelectedPayoutForMarkPaid(payout);
+                                    setPayoutMode('razorpayx');
+                                    setPayoutAmountInput(payout.amountPayableINR);
+                                    setUtrInput(`UTR-${Math.floor(10000000 + Math.random() * 90000000)}`);
+                                    setPaymentDateInput(new Date().toISOString().split('T')[0]);
+                                  }}
+                                  className="text-xs py-1 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl flex items-center gap-1 font-black shadow-sm"
+                                  title="1-Click Instant Automated Payout via RazorpayX"
+                                >
+                                  <FiZap className="w-3.5 h-3.5 text-amber-300 animate-pulse" /> 1-Click Pay
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedPayoutForMarkPaid(payout);
+                                    setPayoutMode('manual');
+                                    setPayoutAmountInput(payout.amountPayableINR);
+                                    setUtrInput(`UTR-${Math.floor(10000000 + Math.random() * 90000000)}`);
+                                    setPaymentDateInput(new Date().toISOString().split('T')[0]);
+                                  }}
+                                  className="text-xs py-1 px-2 text-slate-600 dark:text-slate-300 rounded-xl"
+                                  title="Manual Bank Transfer Settlement"
+                                >
+                                  <FiSend className="w-3 h-3" />
+                                </Button>
+                              </div>
                             ) : (
                               <span
                                 className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60"
@@ -951,11 +1012,11 @@ export const AdminInstructorPayouts: React.FC = () => {
       </AnimatePresence>
 
       {/* ======================================================== */}
-      {/* MARK AS PAID MODAL */}
+      {/* MARK AS PAID / 1-CLICK INSTANT PAYOUT MODAL */}
       {/* ======================================================== */}
       <AnimatePresence>
         {selectedPayoutForMarkPaid && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto font-sans" role="dialog" aria-label="Mark as Paid">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto font-sans" role="dialog" aria-label="Disburse Instructor Payout">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -963,9 +1024,24 @@ export const AdminInstructorPayouts: React.FC = () => {
               className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[28px] p-6 sm:p-8 shadow-2xl space-y-5"
             >
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                <h3 className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <FiSend className="w-5 h-5 text-emerald-500" /> Confirm Manual Instructor Payout
-                </h3>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    {payoutMode === 'razorpayx' ? (
+                      <>
+                        <FiZap className="w-5 h-5 text-amber-500 animate-pulse" /> 1-Click Automated Payout (RazorpayX)
+                      </>
+                    ) : (
+                      <>
+                        <FiSend className="w-5 h-5 text-emerald-500" /> Confirm Manual Instructor Payout
+                      </>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {payoutMode === 'razorpayx'
+                      ? 'Instant in-app disbursement with automatic bank UTR tracking.'
+                      : 'Record an external bank transfer with manual UTR.'}
+                  </p>
+                </div>
                 <button
                   onClick={() => setSelectedPayoutForMarkPaid(null)}
                   className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -974,6 +1050,33 @@ export const AdminInstructorPayouts: React.FC = () => {
                 </button>
               </div>
 
+              {/* Mode Toggle Switch */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setPayoutMode('razorpayx')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    payoutMode === 'razorpayx'
+                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <FiZap className="w-3.5 h-3.5" /> ⚡ 1-Click RazorpayX
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayoutMode('manual')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    payoutMode === 'manual'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <FiSend className="w-3.5 h-3.5" /> 📝 Manual + UTR
+                </button>
+              </div>
+
+              {/* Instructor Details Card */}
               <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Instructor:</span>
@@ -984,11 +1087,11 @@ export const AdminInstructorPayouts: React.FC = () => {
                   <span className="font-bold text-slate-900 dark:text-slate-100">{selectedPayoutForMarkPaid.payoutMethod}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Account / UPI Details:</span>
+                  <span className="text-slate-500">Destination Account / UPI:</span>
                   <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{selectedPayoutForMarkPaid.accountDetails}</span>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-emerald-200 dark:border-emerald-800">
-                  <span className="text-slate-600 font-bold">Amount Payable:</span>
+                  <span className="text-slate-600 font-bold">Total Payable Balance:</span>
                   <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
                     {formatINR(selectedPayoutForMarkPaid.amountPayableINR)}
                   </span>
@@ -1002,9 +1105,18 @@ export const AdminInstructorPayouts: React.FC = () => {
                     <label className="font-bold text-slate-700 dark:text-slate-300">
                       Disbursement Amount (₹) <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[11px] text-slate-400">
-                      Max: {formatINR(selectedPayoutForMarkPaid.amountPayableINR)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPayoutAmountInput(selectedPayoutForMarkPaid.amountPayableINR)}
+                        className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                      >
+                        Full Balance
+                      </button>
+                      <span className="text-[11px] text-slate-400">
+                        Max: {formatINR(selectedPayoutForMarkPaid.amountPayableINR)}
+                      </span>
+                    </div>
                   </div>
                   <input
                     type="number"
@@ -1021,28 +1133,42 @@ export const AdminInstructorPayouts: React.FC = () => {
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">
-                    Transaction ID / UTR Number <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={utrInput}
-                    onChange={(e) => setUtrInput(e.target.value)}
-                    placeholder="e.g. UTR-98421099"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-                  />
-                </div>
+                {payoutMode === 'razorpayx' ? (
+                  <div className="p-3 bg-gradient-to-br from-emerald-500/10 via-teal-500/10 to-transparent border border-emerald-200/60 dark:border-emerald-800/60 rounded-xl space-y-1.5">
+                    <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold">
+                      <FiShield className="w-4 h-4 text-emerald-500" />
+                      <span>Direct In-App Payout via RazorpayX</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                      EduSphere will instantly initiate transfer of <strong>{formatINR(payoutAmountInput)}</strong> directly to <strong>{selectedPayoutForMarkPaid.accountDetails}</strong>. The bank UTR will be auto-generated, recorded in the ledger, and synced to the instructor in real-time.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-700 dark:text-slate-300">
+                        Transaction ID / UTR Number <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={utrInput}
+                        onChange={(e) => setUtrInput(e.target.value)}
+                        placeholder="e.g. UTR-98421099"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                      />
+                    </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Payment Date</label>
-                  <input
-                    type="date"
-                    value={paymentDateInput}
-                    onChange={(e) => setPaymentDateInput(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-slate-700 dark:text-slate-300">Payment Date</label>
+                      <input
+                        type="date"
+                        value={paymentDateInput}
+                        onChange={(e) => setPaymentDateInput(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700 dark:text-slate-300">Notes (Optional)</label>
@@ -1050,7 +1176,11 @@ export const AdminInstructorPayouts: React.FC = () => {
                     rows={2}
                     value={notesInput}
                     onChange={(e) => setNotesInput(e.target.value)}
-                    placeholder="e.g. Processed via HDFC Corporate NetBanking UTR."
+                    placeholder={
+                      payoutMode === 'razorpayx'
+                        ? 'e.g. Monthly revenue settlement via 1-Click RazorpayX'
+                        : 'e.g. Processed via HDFC Corporate NetBanking UTR.'
+                    }
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -1065,15 +1195,36 @@ export const AdminInstructorPayouts: React.FC = () => {
                 >
                   Cancel
                 </Button>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={handleConfirmMarkAsPaid}
-                  disabled={isSubmittingPayout || payoutAmountInput > selectedPayoutForMarkPaid.amountPayableINR || payoutAmountInput <= 0}
-                  className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl py-2 px-4 shadow-sm disabled:opacity-50"
-                >
-                  {isSubmittingPayout ? 'Processing...' : 'Confirm Payment'}
-                </Button>
+
+                {payoutMode === 'razorpayx' ? (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={handleAutoDisburse}
+                    disabled={isAutoDisbursing || payoutAmountInput > selectedPayoutForMarkPaid.amountPayableINR || payoutAmountInput <= 0}
+                    className="text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl py-2 px-5 shadow-md flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isAutoDisbursing ? (
+                      <>
+                        <FiLoader className="w-3.5 h-3.5 animate-spin" /> Disbursing...
+                      </>
+                    ) : (
+                      <>
+                        <FiZap className="w-3.5 h-3.5 text-amber-300" /> Disburse {formatINR(payoutAmountInput)} Now
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={handleConfirmMarkAsPaid}
+                    disabled={isSubmittingPayout || payoutAmountInput > selectedPayoutForMarkPaid.amountPayableINR || payoutAmountInput <= 0}
+                    className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl py-2 px-4 shadow-sm disabled:opacity-50"
+                  >
+                    {isSubmittingPayout ? 'Processing...' : 'Confirm Manual Payment'}
+                  </Button>
+                )}
               </div>
             </motion.div>
           </div>
